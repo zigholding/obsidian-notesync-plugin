@@ -6,17 +6,59 @@ import { App, Editor, MarkdownView, Modal, Notice, Plugin, PluginSettingTab, Set
 const fs = require('fs');
 
 interface VExporterSettings {
-	mySetting: string;
+	nameLocalGitProject: string;
+	assetsLocalGitProject:string;
 }
 
 const DEFAULT_SETTINGS: VExporterSettings = {
-	mySetting: 'default'
+	nameLocalGitProject: 'LocalGitProject',
+	assetsLocalGitProject: 'assets'
+}
+
+const cmd_export_readme = (plugin:VaultExpoterPlugin) => ({
+	id: 'export_readme',
+	name: 'Export readMe',
+	callback: async () => {
+		let nc = await plugin.app.plugins.getPlugin('note-chain');
+		let tfile = nc.chain.current_note;
+		await plugin.export_readme(
+			tfile,null,true,plugin.settings.assetsLocalGitProject
+		);
+	}
+});
+
+const cmd_set_git_project = (plugin:VaultExpoterPlugin) => ({
+	id: 'set_git_project',
+	name: 'Set Git Project',
+	callback: async () => {
+		let nc = await plugin.app.plugins.getPlugin('note-chain');
+		let dir = await nc.chain.tp_prompt('输入文件夹');
+		if(!dir || !fs.existsSync(dir)){
+			return;
+		}
+		await nc.editor.set_frontmatter(
+			nc.chain.current_note,
+			plugin.settings.nameLocalGitProject,
+			dir
+		)
+	}
+});
+
+const commandBuilders = [
+	cmd_export_readme,
+	cmd_set_git_project
+];
+
+function addCommands(plugin:VaultExpoterPlugin) {
+    commandBuilders.forEach((c) => {
+        plugin.addCommand(c(plugin));
+    });
 }
 
 export default class VaultExpoterPlugin extends Plugin {
 	settings: VExporterSettings;
 	root : string;
-
+	
 	async onload() {
 		await this.loadSettings();
 		this.app.vt = this;
@@ -24,6 +66,8 @@ export default class VaultExpoterPlugin extends Plugin {
 		this.root = this.app.vault.adapter.basePath;
 		// This adds a settings tab so the user can configure various aspects of the plugin
 		this.addSettingTab(new VExporterSettingTab(this.app, this));
+
+		addCommands(this);
 	}
 
 	onunload() {
@@ -84,7 +128,7 @@ export default class VaultExpoterPlugin extends Plugin {
 		if(!tfile){tfile = nc.chain.current_note;}
 		
 		if(!dst){
-			dst = 'LocalGitProject';
+			dst = this.settings.nameLocalGitProject;
 		}
 		if(!dst.contains('/')){
 			dst = nc.editor.get_frontmatter(tfile,dst);
@@ -136,14 +180,26 @@ class VExporterSettingTab extends PluginSettingTab {
 		containerEl.empty();
 
 		new Setting(containerEl)
-			.setName('Setting #1')
-			.setDesc('It\'s a secret')
-			.addTextArea(text => text
-				.setPlaceholder('Enter your secret')
-				.setValue(this.plugin.settings.mySetting)
+			.setName('LocalGitProject')
+			.setDesc('Metadata Name for Dir of Git Porject')
+			.addText(text => text
+				.setPlaceholder('Enter your field')
+				.setValue(this.plugin.settings.nameLocalGitProject)
 				.onChange(async (value) => {
-					this.plugin.settings.mySetting = value;
+					this.plugin.settings.nameLocalGitProject = value;
 					await this.plugin.saveSettings();
 				}));
+		
+		new Setting(containerEl)
+			.setName('Folder For Assets')
+			.setDesc('Dir Name for Assets')
+			.addText(text => text
+				.setValue(this.plugin.settings.assetsLocalGitProject)
+				.onChange(async (value) => {
+					this.plugin.settings.assetsLocalGitProject = value;
+					await this.plugin.saveSettings();
+				}));
+				
+				
 	}
 }
