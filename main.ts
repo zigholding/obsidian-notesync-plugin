@@ -153,6 +153,7 @@ export default class VaultExpoterPlugin extends Plugin {
 		}
 
 		this.copy_tfile(tfile,tmp);
+		await this.replace_readme(tmp);
 
 		let adir = dst+'/'+assets;
 		if(!fs.existsSync(adir)){
@@ -163,6 +164,29 @@ export default class VaultExpoterPlugin extends Plugin {
 				this.copy_tfile(f,adir+'/'+f.basename+'.'+f.extension);
 			}
 		}
+	}
+	
+	replace_readme(path:string){
+		fs.readFile(path, 'utf8', (err, data) => {
+			if (err) {
+			  return;
+			}
+			
+			const replacedContent = data.replace(
+				/\!\[\[(.*?)\]\]/g, 
+				(match, filename) => {
+			  	return `![](./assets/${filename})`;
+			});
+			
+			// 异步写入新内容到文件
+			fs.writeFile(path, replacedContent, 'utf8', (err) => {
+			  if (err) {
+				console.error('Error writing file:', err);
+			  } else {
+				console.log('File content updated successfully.');
+			  }
+			});
+		  });
 	}
 }
 
@@ -199,7 +223,5 @@ class VExporterSettingTab extends PluginSettingTab {
 					this.plugin.settings.assetsLocalGitProject = value;
 					await this.plugin.saveSettings();
 				}));
-				
-				
 	}
 }
