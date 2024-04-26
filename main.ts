@@ -70,7 +70,7 @@ const cmd_export_plugin = (plugin:VaultExpoterPlugin) => ({
 			}
 			let items = ['main.js','manifest.json','styles.css','data.json'];
 			for(let item of items){
-				let src = `${plugin.fsEditor.root}/${plugin.manifest.dir}/${item}`;
+				let src = `${plugin.fsEditor.root}/${eplugin.manifest.dir}/${item}`;
 				let dst = `${target}/${item}`;
 				plugin.fsEditor.copy_file_by_path(src,dst,'overwrite');
 				new Notice(`导出：${p}/${item}`,3000);
