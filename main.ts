@@ -2,6 +2,7 @@ import * as Module from 'module';
 import { App, Editor, MarkdownView, Modal, Notice, Plugin, PluginSettingTab, Setting, TFile } from 'obsidian';
 
 import { FsEditor } from 'src/fseditor';
+import { strings } from 'src/strings';
 
 interface VExporterSettings {
 	nameLocalGitProject: string;
@@ -20,7 +21,7 @@ const DEFAULT_SETTINGS: VExporterSettings = {
 
 const cmd_export_readme = (plugin:VaultExpoterPlugin) => ({
 	id: 'export_readme',
-	name: 'Export readMe',
+	name: strings.cmd_export_readme,
 	callback: async () => {
 		const nc = plugin.notechain;
 		let tfile = nc.chain.current_note;
@@ -32,10 +33,10 @@ const cmd_export_readme = (plugin:VaultExpoterPlugin) => ({
 
 const cmd_set_git_project = (plugin:VaultExpoterPlugin) => ({
 	id: 'set_git_project',
-	name: 'Set Git Project',
+	name: strings.cmd_set_git_project,
 	callback: async () => {
 		const nc = plugin.notechain;
-		let dir = await nc.chain.tp_prompt('输入文件夹');
+		let dir = await nc.chain.tp_prompt(strings.prompt_path_of_folder);
 		if(!dir || !plugin.fsEditor.fs.existsSync(dir)){
 			return;
 		}
@@ -49,7 +50,7 @@ const cmd_set_git_project = (plugin:VaultExpoterPlugin) => ({
 
 const cmd_export_plugin = (plugin:VaultExpoterPlugin) => ({
 	id: 'cmd_export_plugin',
-	name: 'Export Plugin',
+	name: strings.cmd_export_plugin,
 	callback: async () => {
 		const nc = plugin.notechain;
 		
@@ -59,7 +60,7 @@ const cmd_export_plugin = (plugin:VaultExpoterPlugin) => ({
 		if(eplugin){
 			let target = plugin.settings.pluginDirExporter;
 			if(!plugin.fsEditor.fs.existsSync(target)){
-				target = await nc.chain.tp_prompt('输出目录');
+				target = await nc.chain.tp_prompt(strings.prompt_path_of_folder);
 			}
 			target = target.replace(/\\/g,'/');
 			if(!target.endsWith('/' + p)){
@@ -73,7 +74,7 @@ const cmd_export_plugin = (plugin:VaultExpoterPlugin) => ({
 				let src = `${plugin.fsEditor.root}/${eplugin.manifest.dir}/${item}`;
 				let dst = `${target}/${item}`;
 				plugin.fsEditor.copy_file_by_path(src,dst,'overwrite');
-				new Notice(`导出：${p}/${item}`,3000);
+				new Notice(`${strings.notice_output}${p}/${item}`,3000);
 			}
 		}
 	}
