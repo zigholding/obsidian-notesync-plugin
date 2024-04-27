@@ -5,45 +5,43 @@ import { FsEditor } from 'src/fseditor';
 import { strings } from 'src/strings';
 
 interface VExporterSettings {
-	nameLocalGitProject: string;
-	assetsLocalGitProject:string;
-	readmeRemoveFrontmatter:boolean;
 	pluginDirExporter:string;
 }
 
 const DEFAULT_SETTINGS: VExporterSettings = {
-	nameLocalGitProject: 'LocalGitProject',
-	readmeRemoveFrontmatter:true,
-	assetsLocalGitProject: 'assets',
 	pluginDirExporter:''
 }
 
 
-const cmd_export_readme = (plugin:VaultExpoterPlugin) => ({
-	id: 'export_readme',
-	name: strings.cmd_export_readme,
+const cmd_export_current_note = (plugin:VaultExpoterPlugin) => ({
+	id: 'cmd_export_current_note',
+	name: strings.cmd_export_current_note,
 	callback: async () => {
 		const nc = plugin.notechain;
 		let tfile = nc.chain.current_note;
-		await plugin.export_readme(
-			tfile,null,true,plugin.settings.assetsLocalGitProject
-		);
+		await plugin.export_readme(tfile,null);
 	}
 });
 
-const cmd_set_git_project = (plugin:VaultExpoterPlugin) => ({
-	id: 'set_git_project',
-	name: strings.cmd_set_git_project,
+const cmd_set_vexporter = (plugin:VaultExpoterPlugin) => ({
+	id: 'cmd_set_vexporter',
+	name: strings.cmd_set_vexporter,
 	callback: async () => {
 		const nc = plugin.notechain;
 		let dir = await nc.chain.tp_prompt(strings.prompt_path_of_folder);
-		if(!dir || !plugin.fsEditor.fs.existsSync(dir)){
-			return;
+		let item: { [key: string]: any } = {};
+		if(plugin.fsEditor.fs.existsSync(dir)){
+			item['Dir'] = dir;
 		}
+		item['Name'] = 'readMe';
+		item['Assets'] = './assets';
+		item['RemoveMeta'] = true;
+		item['UseGitLink'] = true;
+
 		await nc.editor.set_frontmatter(
 			nc.chain.current_note,
-			plugin.settings.nameLocalGitProject,
-			dir
+			'vexporter',
+			item
 		)
 	}
 });
@@ -81,8 +79,8 @@ const cmd_export_plugin = (plugin:VaultExpoterPlugin) => ({
 });
 
 const commandBuilders = [
-	cmd_export_readme,
-	cmd_set_git_project,
+	cmd_export_current_note,
+	cmd_set_vexporter,
 	cmd_export_plugin
 ];
 
@@ -97,11 +95,9 @@ export default class VaultExpoterPlugin extends Plugin {
 	fsEditor : FsEditor;
 	async onload() {
 		await this.loadSettings();
-		this.app.vt = this;
 		this.fsEditor = new FsEditor(this);
 		// This adds a settings tab so the user can configure various aspects of the plugin
 		this.addSettingTab(new VExporterSettingTab(this.app, this));
-
 		addCommands(this);
 	}
 
@@ -121,64 +117,68 @@ export default class VaultExpoterPlugin extends Plugin {
 		await this.saveData(this.settings);
 	}
 	
-	async export_readme(tfile:TFile,dst:string|null,as_readme=true,assets='assets'){
+	async export_readme(tfile:TFile,dst:string|null){
 		let nc = (this.app as any).plugins.getPlugin('note-chain');
 		if(!tfile){tfile = nc.chain.current_note;}
 		
+		// 设置输出目录
 		if(!dst){
-			dst = this.settings.nameLocalGitProject;
+			dst = nc.editor.get_frontmatter(tfile,'vexporter')?.Dir;
+			if(!dst){
+				dst = await nc.chain.tp_prompt('Path of LocalGitProject');
+			}
 		}
-		if(!dst.contains('/')){
-			dst = nc.editor.get_frontmatter(tfile,dst);
-		}
-
-		if(!dst){
-			dst = await nc.chain.tp_prompt('Path of LocalGitProject');
-			if(!dst){return;}
+		if(!dst || !this.fsEditor.fs.existsSync(dst)){
+			new Notice(strings.notice_nosuchdir,3000);
+			return;
 		}
 		dst = dst.replace(/\\/g,'/');
-		if(!this.fsEditor.fs.existsSync(dst)){
-			console.log('No Dir:',dst);
-		}
-		console.log(dst);
-		let olinks = nc.chain.get_outlinks(tfile);
 		
+		
+		// 导出当前笔记
 		let tmp;
-		if(as_readme){
-			tmp = dst+'/'+'readMe.md';
+		let name = nc.editor.get_frontmatter(tfile,'vexporter')?.Name;
+		if(name && !(name==='')){
+			tmp = dst+'/'+name+'.md';
 		}else{
 			tmp = dst+'/'+tfile.basename+'.md';
 		}
 
-		this.fsEditor.copy_tfile(tfile,tmp);
-		await this.replace_readme(tmp);
-
-		let adir = dst+'/'+assets;
-		if(!this.fsEditor.fs.existsSync(adir)){
-			this.fsEditor.fs.mkdirSync(adir);
-		}
-		for(let f of olinks){
-			if(!(f.extension==='md')){
-				this.fsEditor.copy_tfile(f,adir+'/'+f.basename+'.'+f.extension);
+		if(this.fsEditor.copy_tfile(tfile,tmp)){
+			if(nc.editor.get_frontmatter(tfile,'vexporter')?.RemoveMeta){
+				const ufunc = (path:string,data:string)=>{
+					let res = data;
+					if(nc.editor.get_frontmatter(tfile,'vexporter')?.RemoveMeta){
+						res = res.replace(
+							/---[\n(\r\n)][\s\S]*?---[\n(\r\n)]/,
+							''
+						)
+					}
+					if(nc.editor.get_frontmatter(tfile,'vexporter')?.UseGitLink && assets){
+						res = res.replace(
+							/\!\[\[(.*?)\]\]/g,
+							(match:any, name:string) => {
+								return `![${name}](${assets}/${name})`;
+							}
+						)
+					}
+					return res
+				}
+				await this.fsEditor.modify(tmp,ufunc);
 			}
 		}
-	}
-	
-	replace_readme(path:string){
-		const ufunc = (path:string,data:string)=>{
-			let replacedContent = data.replace(
-				/\!\[\[(.*?)\]\]/g, 
-				(match:any, filename:string) => {
-				return `![${filename}](./assets/${filename})`;
-			});
-			if(this.settings.readmeRemoveFrontmatter){
-				replacedContent = replacedContent.replace(
-					/---[\n(\r\n)][\s\S]*?---[\n(\r\n)]/,''
-				)
+		// 导出附件
+		let assets = nc.editor.get_frontmatter(tfile,'vexporter')?.Assets;
+		if(assets){
+			let olinks = nc.chain.get_outlinks(tfile);
+			let adir = dst+'/'+assets;
+			this.fsEditor.mkdirRecursiveSync(adir);
+			for(let f of olinks){
+				if(!(f.extension==='md')){
+					this.fsEditor.copy_tfile(f,adir+'/'+f.basename+'.'+f.extension);
+				}
 			}
-			return replacedContent;
 		}
-		this.fsEditor.modify(path,ufunc,'utf8');
 	}
 }
 
@@ -197,7 +197,7 @@ class VExporterSettingTab extends PluginSettingTab {
 
 	add_toggle(name:string,desc:string,field:keyof VExporterSettings){
 		const {containerEl} = this;
-		let value = this.plugin.settings[field] as boolean;
+		let value = (this.plugin.settings as any)[field] as boolean;
 		let item = new Setting(containerEl)  
 			.setName(name)
 			.setDesc(desc)
@@ -215,34 +215,9 @@ class VExporterSettingTab extends PluginSettingTab {
 		const {containerEl} = this;
 
 		containerEl.empty();
-
-		new Setting(containerEl)
-			.setName('LocalGitProject')
-			.setDesc('Metadata Name for Dir of Git Porject')
-			.addText(text => text
-				.setPlaceholder('Enter your field')
-				.setValue(this.plugin.settings.nameLocalGitProject)
-				.onChange(async (value) => {
-					this.plugin.settings.nameLocalGitProject = value;
-					await this.plugin.saveSettings();
-				}));
 		
 		new Setting(containerEl)
-			.setName('Folder For Assets')
-			.setDesc('Dir Name for Assets')
-			.addText(text => text
-				.setValue(this.plugin.settings.assetsLocalGitProject)
-				.onChange(async (value) => {
-					this.plugin.settings.assetsLocalGitProject = value;
-					await this.plugin.saveSettings();
-				}));
-		
-		this.add_toggle(
-			'Remove Frontmatter?','','readmeRemoveFrontmatter'
-		);
-
-		new Setting(containerEl)
-			.setName('Plugin Dir To Export')
+			.setName(strings.setting_plugin_dir)
 			.addText(text => text
 				.setValue(this.plugin.settings.pluginDirExporter)
 				.onChange(async (value) => {

@@ -10,19 +10,19 @@ class Strings{
         }
 	}
 
-    get cmd_export_readme(){
+    get cmd_export_current_note(){
         if(this.language=='zh'){
-            return '导出 readMe'
+            return '导出当前笔记'
         }else{
-            return 'Export readMe';
+            return 'Export Current Note';
         }
     }
 
-    get cmd_set_git_project(){
+    get cmd_set_vexporter(){
         if(this.language=='zh'){
-            return '设置Git项目路径'
+            return '设置导出笔记选项'
         }else{
-            return 'Set Dir of Git Project';
+            return 'Set Config to Export Note';
         }
     }
 
@@ -47,6 +47,21 @@ class Strings{
             return '导出：'
         }else{
             return 'Output:';
+        }
+    }
+    get notice_nosuchdir(){
+        if(this.language=='zh'){
+            return '无效目录'
+        }else{
+            return 'Invaid Path.';
+        }
+    }
+
+    get setting_plugin_dir(){
+        if(this.language=='zh'){
+            return '插件导出目录';
+        }else{
+            return 'Plugin Dir To Export';
         }
     }
 }

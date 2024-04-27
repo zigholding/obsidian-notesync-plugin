@@ -51,29 +51,35 @@ export class FsEditor{
 
         mode = mode.split('>')[0]
         if(!fs.existsSync(src)){
-            return;
+            return false;
         }
         if(fs.existsSync(dst)){
             if(mode==='overwrite'){
                 fs.unlinkSync(dst);
                 fs.copyFileSync(src,dst);
+                return true;
             }else if(mode==='mtime'){
                 // dst 更新时间小于 src
                 if(fs.statSync(dst).mtimeMs<fs.statSync(src).mtimeMs){
                     fs.unlinkSync(dst);
                     fs.copyFileSync(src,dst);
+                    return true;
                 }
             }
         }else{
             fs.copyFileSync(src,dst);
+            return true;
         }
+        return false;
     }
 
     copy_tfile(tfile:TFile, dst:string,mode='mtime') {
 		if(tfile){
 			let src = this.abspath(tfile);
-			src && this.copy_file_by_path(src,dst,mode);
+        
+			return src && this.copy_file_by_path(src,dst,mode);
 		}
+        return false;
 	}
 
     mirror_tfile(tfile:TFile,vault_root:string,mode='mtime',attachment=true,outlink=false){
