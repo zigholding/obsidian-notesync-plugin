@@ -14,7 +14,7 @@ class Strings{
         if(this.language=='zh'){
             return '导出当前笔记'
         }else{
-            return 'Export Current Note';
+            return 'Export current note';
         }
     }
 
@@ -22,7 +22,7 @@ class Strings{
         if(this.language=='zh'){
             return '设置导出笔记选项'
         }else{
-            return 'Set Config to Export Note';
+            return 'Set config to export note';
         }
     }
 
@@ -30,7 +30,7 @@ class Strings{
         if(this.language=='zh'){
             return '导出插件'
         }else{
-            return 'Export Plugin';
+            return 'Export plugin';
         }
     }
 
@@ -38,7 +38,7 @@ class Strings{
         if(this.language=='zh'){
             return '输入文件夹路径'
         }else{
-            return 'Input Path of Folder';
+            return 'Input path of folder';
         }
     }
 
@@ -53,7 +53,7 @@ class Strings{
         if(this.language=='zh'){
             return '无效目录'
         }else{
-            return 'Invaid Path.';
+            return 'Invaid path.';
         }
     }
 
@@ -61,7 +61,7 @@ class Strings{
         if(this.language=='zh'){
             return '插件导出目录';
         }else{
-            return 'Plugin Dir To Export';
+            return 'Plugin dir To export';
         }
     }
 }

@@ -33,6 +33,33 @@ export class FsEditor{
         return this.fs.existsSync(path) && this.fs.statSync(path).isDirectory();
     }
 
+    first_valid_dir(paths:Array<string>){
+        for(let path of paths){
+            if(this.isdir(path)){
+                return path;
+            }
+        }
+        return null;
+    }
+
+    async select_valid_dir(paths:Array<string>){
+        let xpaths = paths.filter((p:string)=>this.isdir(p));
+        if(xpaths.length===0){
+            return null;
+        }else if(xpaths.length==1){
+            return xpaths[0];
+        }else{
+            let nc = (this.plugin.app as any).plugins.getPlugin('note-chain');
+            if(nc){
+                let path = await nc.chain.tp_suggester(xpaths,xpaths);
+                return path;
+            }else{
+                return null;
+            }
+        }
+    }
+    
+
     mkdirRecursiveSync(path:string){
         if(this.isdir(path)){return true;}
         const parent = this.path.dirname(path);

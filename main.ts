@@ -56,7 +56,9 @@ const cmd_export_plugin = (plugin:VaultExpoterPlugin) => ({
 		let p = await nc.chain.tp_suggester(plugins,plugins);
 		let eplugin = (plugin.app as any).plugins.getPlugin(p);
 		if(eplugin){
-			let target = plugin.settings.pluginDirExporter;
+			let target = await plugin.fsEditor.select_valid_dir(
+				plugin.settings.pluginDirExporter.split("\n")
+			)
 			if(!plugin.fsEditor.fs.existsSync(target)){
 				target = await nc.chain.tp_prompt(strings.prompt_path_of_folder);
 			}
@@ -218,12 +220,11 @@ class VExporterSettingTab extends PluginSettingTab {
 		
 		new Setting(containerEl)
 			.setName(strings.setting_plugin_dir)
-			.addText(text => text
+			.addTextArea(text => text
 				.setValue(this.plugin.settings.pluginDirExporter)
 				.onChange(async (value) => {
 					this.plugin.settings.pluginDirExporter = value;
 					await this.plugin.saveSettings();
 				}));
-		
 	}
 }
