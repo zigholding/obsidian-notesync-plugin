@@ -1,5 +1,5 @@
 
-import { App, Editor, MarkdownView, Modal, Notice, Plugin, PluginSettingTab, Setting, TFile } from 'obsidian';
+import { App, Editor, MarkdownView, Modal, Notice, Plugin, PluginSettingTab, Setting, TFile, TFolder } from 'obsidian';
 
 export class FsEditor{
     fs;
@@ -33,7 +33,7 @@ export class FsEditor{
         return this.fs.existsSync(path) && this.fs.statSync(path).isDirectory();
     }
 
-    first_valid_dir(paths:Array<string>){
+    first_valid_dir(paths:Array<string>|string){
         for(let path of paths){
             if(this.isdir(path)){
                 return path;
@@ -60,11 +60,11 @@ export class FsEditor{
     }
     
 
-    mkdirRecursiveSync(path:string){
+    mkdir_recursive(path:string){
         if(this.isdir(path)){return true;}
         const parent = this.path.dirname(path);
         if(!this.isdir(parent)){
-            this.mkdirRecursiveSync(parent);
+            this.mkdir_recursive(parent);
         }
         this.fs.mkdirSync(path);
     }
@@ -73,7 +73,7 @@ export class FsEditor{
 	* 附件 src 到 dst，不在 vault 中，需要绝对路径
 	* overwrite，复盖；mtime，新文件；
 	*/
-    copy_file_by_path(src:string,dst:string,mode='pass>overwrite>mtime') {
+    copy_file(src:string,dst:string,mode='pass>overwrite>mtime') {
         const fs = this.fs;
 
         mode = mode.split('>')[0]
@@ -84,17 +84,20 @@ export class FsEditor{
             if(mode==='overwrite'){
                 fs.unlinkSync(dst);
                 fs.copyFileSync(src,dst);
+                new Notice(`Copy:${src}-->${dst}`,5000);
                 return true;
             }else if(mode==='mtime'){
                 // dst 更新时间小于 src
                 if(fs.statSync(dst).mtimeMs<fs.statSync(src).mtimeMs){
                     fs.unlinkSync(dst);
                     fs.copyFileSync(src,dst);
+                    new Notice(`Copy:${src}-->${dst}`,5000);
                     return true;
                 }
             }
         }else{
             fs.copyFileSync(src,dst);
+            new Notice(`Copy:${src}-->${dst}`,5000);
             return true;
         }
         return false;
@@ -103,8 +106,7 @@ export class FsEditor{
     copy_tfile(tfile:TFile, dst:string,mode='mtime') {
 		if(tfile){
 			let src = this.abspath(tfile);
-        
-			return src && this.copy_file_by_path(src,dst,mode);
+			return src && this.copy_file(src,dst,mode);
 		}
         return false;
 	}
@@ -115,10 +117,11 @@ export class FsEditor{
             vault_root = vault_root.replace(/\\g/,'/');
 			let src = this.root + '/' + tfile.path;
             let dst = vault_root+'/'+tfile.path;
-            this.mkdirRecursiveSync(this.path.dirname);
-			this.copy_file_by_path(src,dst,mode);
+            this.mkdir_recursive(this.path.dirname(dst));
+			this.copy_file(src,dst,mode);
             if(attachment){
                 let nc = (this.plugin.app as any).plugins.getPlugin('note-chain');
+                if(!nc){return;}
                 let tfiles = nc.chain.get_outlinks(tfile);
                 for(let t of tfiles){
                     if(!(t.extension==='md')){
@@ -126,6 +129,18 @@ export class FsEditor{
                     }else if(outlink){
                         this.mirror_tfile(t,vault_root,mode,false);
                     }
+                }
+            }
+		}
+    }
+
+    mirror_tfolder(tfolder:TFolder,vault_root:string,mode='mtime',attachment=true,outlink=false){
+        if(tfolder){
+            for(let t of tfolder.children){
+                if(t instanceof TFolder){
+                    this.mirror_tfolder(t,vault_root,mode,attachment,outlink);
+                }else if(t instanceof TFile){
+                    this.mirror_tfile(t,vault_root,mode,attachment,outlink);
                 }
             }
 		}

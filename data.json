@@ -1,7 +1,4 @@
 {
-  "pluginDirExporter": "D:\\iLanix\\notes\\Obsidian\\.obsidian\\plugins\nD:\\iLanix\\isync\\Obsidian\\.obsidian\\plugins",
-  "nameLocalGitProject": "LocalGitProject",
-  "readmeRemoveFrontmatter": true,
-  "assetsLocalGitProject": "assets",
-  "mySetting": "D:/iLanix/isync/test"
+  "pluginDirExporter": "D:\\iLanix\\isync\\Obsidian\\.obsidian\\plugins",
+  "vaultDir": "D:\\iLanix\\isync\\Obsidian"
 }

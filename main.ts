@@ -1,15 +1,17 @@
 import * as Module from 'module';
-import { App, Editor, MarkdownView, Modal, Notice, Plugin, PluginSettingTab, Setting, TFile } from 'obsidian';
+import { App, Editor, MarkdownView, Modal, Notice, Plugin, PluginSettingTab, Setting, TFile, TFolder } from 'obsidian';
 
 import { FsEditor } from 'src/fseditor';
 import { strings } from 'src/strings';
 
 interface VExporterSettings {
 	pluginDirExporter:string;
+	vaultDir:string;
 }
 
 const DEFAULT_SETTINGS: VExporterSettings = {
-	pluginDirExporter:''
+	pluginDirExporter:'',
+	vaultDir:''
 }
 
 
@@ -69,12 +71,11 @@ const cmd_export_plugin = (plugin:VaultExpoterPlugin) => ({
 			if(!plugin.fsEditor.fs.existsSync(target)){
 				plugin.fsEditor.fs.mkdirSync(target);
 			}
-			let items = ['main.js','manifest.json','styles.css','data.json'];
+			let items = ['main.js','manifest.json','styles.css'];
 			for(let item of items){
 				let src = `${plugin.fsEditor.root}/${eplugin.manifest.dir}/${item}`;
 				let dst = `${target}/${item}`;
-				plugin.fsEditor.copy_file_by_path(src,dst,'overwrite');
-				new Notice(`${strings.notice_output}${p}/${item}`,3000);
+				plugin.fsEditor.copy_file(src,dst,'overwrite');
 			}
 		}
 	}
@@ -101,6 +102,39 @@ export default class VaultExpoterPlugin extends Plugin {
 		// This adds a settings tab so the user can configure various aspects of the plugin
 		this.addSettingTab(new VExporterSettingTab(this.app, this));
 		addCommands(this);
+
+		this.registerEvent(
+			this.app.workspace.on("file-menu", (menu, file) => {
+				menu.addItem((item) => {
+					item
+					.setTitle("Mirror to other vault")
+					.setIcon("document")
+					.onClick(async () => {
+						let dst = await this.fsEditor.select_valid_dir(
+							this.settings.vaultDir.split("\n")
+						);
+						if(!dst){
+							let nc= (this.app as any).plugins.getPlugin("note-chain");
+							if(!nc){
+								new Notice("Plugin note-chain is needed!");
+								return;
+							}
+							dst = await nc.chain.tp_prompt("Root of vault");
+							if(!this.fsEditor.isdir(dst)){
+								new Notice("Invalid root: " + dst);
+								return;
+							}
+						}
+						if(file instanceof TFile){
+							this.fsEditor.mirror_tfile(file,dst,'mtime',true,false);
+
+						}else if(file instanceof TFolder){
+							this.fsEditor.mirror_tfolder(file,dst,'mtime',true,false);
+						}
+					});
+				});
+			})
+		);
 	}
 
 	onunload() {
@@ -174,7 +208,7 @@ export default class VaultExpoterPlugin extends Plugin {
 		if(assets){
 			let olinks = nc.chain.get_outlinks(tfile);
 			let adir = dst+'/'+assets;
-			this.fsEditor.mkdirRecursiveSync(adir);
+			this.fsEditor.mkdir_recursive(adir);
 			for(let f of olinks){
 				if(!(f.extension==='md')){
 					this.fsEditor.copy_tfile(f,adir+'/'+f.basename+'.'+f.extension);
@@ -226,5 +260,14 @@ class VExporterSettingTab extends PluginSettingTab {
 					this.plugin.settings.pluginDirExporter = value;
 					await this.plugin.saveSettings();
 				}));
+		
+		new Setting(containerEl)
+				.setName(strings.setting_vault_dir)
+				.addTextArea(text => text
+					.setValue(this.plugin.settings.vaultDir)
+					.onChange(async (value) => {
+						this.plugin.settings.vaultDir = value;
+						await this.plugin.saveSettings();
+					}));
 	}
 }

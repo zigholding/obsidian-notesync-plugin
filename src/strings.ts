@@ -61,7 +61,15 @@ class Strings{
         if(this.language=='zh'){
             return '插件导出目录';
         }else{
-            return 'Plugin dir To export';
+            return 'Plugin dir to export';
+        }
+    }
+
+    get setting_vault_dir(){
+        if(this.language=='zh'){
+            return '库目录';
+        }else{
+            return 'Root dir of vault';
         }
     }
 }
