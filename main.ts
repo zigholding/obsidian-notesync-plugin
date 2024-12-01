@@ -194,7 +194,7 @@ export default class VaultExpoterPlugin extends Plugin {
 						res = res.replace(
 							/\!\[\[(.*?)\]\]/g,
 							(match:any, name:string) => {
-								return `![${name}](${assets}/${name})`;
+								return `![${name}](${assets}/${name.replace(/ /g,'%20')})`;
 							}
 						)
 					}
