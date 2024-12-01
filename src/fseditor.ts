@@ -114,16 +114,18 @@ export class FsEditor{
     mirror_tfile(tfile:TFile,vault_root:string,mode='mtime',attachment=true,outlink=false){
         // 将笔记镜像移动到别的库中，文件结构与当前库相同
         if(tfile){
-            vault_root = vault_root.replace(/\\g/,'/');
+            vault_root = vault_root.replace(/\\/g,'/');
 			let src = this.root + '/' + tfile.path;
             let dst = vault_root+'/'+tfile.path;
             this.mkdir_recursive(this.path.dirname(dst));
 			this.copy_file(src,dst,mode);
             if(attachment){
+                console.log('attachment')
                 let nc = (this.plugin.app as any).plugins.getPlugin('note-chain');
                 if(!nc){return;}
-                let tfiles = nc.chain.get_outlinks(tfile);
+                let tfiles = nc.chain.get_outlinks(tfile,false);
                 for(let t of tfiles){
+                    console.log(t.name)
                     if(!(t.extension==='md')){
                         this.mirror_tfile(t,vault_root,mode,false);
                     }else if(outlink){
