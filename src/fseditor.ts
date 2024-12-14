@@ -110,20 +110,17 @@ export class FsEditor{
             if(mode==='overwrite'){
                 fs.unlinkSync(dst);
                 fs.copyFileSync(src,dst);
-                new Notice(`Copy:${src}-->${dst}`,5000);
                 return true;
             }else if(mode==='mtime'){
                 // dst 更新时间小于 src
                 if(fs.statSync(dst).mtimeMs<fs.statSync(src).mtimeMs){
                     fs.unlinkSync(dst);
                     fs.copyFileSync(src,dst);
-                    new Notice(`Copy:${src}-->${dst}`,5000);
                     return true;
                 }
             }
         }else{
             fs.copyFileSync(src,dst);
-            new Notice(`Copy:${src}-->${dst}`,5000);
             return true;
         }
         return false;
@@ -179,12 +176,23 @@ export class FsEditor{
 		}
     }
 
+    delete_file_or_dir(path:string){
+        if(this.isfile(path)){
+            this.fs.unlinkSync(path)
+        }else if(this.isdir(path)){
+            let items = this.list_dir(path,true)
+            for(let item of items){
+                this.delete_file_or_dir(item)
+            }
+            this.fs.rmdirSync(path)
+        }
+    }
+
     remove_files_not_in_src(src:string,dst:string){
-        console.log(src,dst)
+        // 遍历 dst 中所有文件，如果某文件不在src中，删除
         if(!this.isdir(src) || !this.isdir(dst)){return}
         let items = this.list_dir(dst,false)
         for(let item of items){
-            console.log(item)
             let adst = dst+'/'+item
             let asrc = src+'/'+item
             if(this.isfile(adst)){
@@ -193,9 +201,31 @@ export class FsEditor{
                 }
             }else if(this.isdir(adst)){
                 if(!this.isdir(asrc)){
-                    this.fs.rmdirSync(dst)
+                    this.delete_file_or_dir(adst)
+                }else{
+                    this.remove_files_not_in_src(asrc,adst)
                 }
             }
+        }
+    }
+
+    mirror_folder(src:string,dst:string,mode='mtime',strict=false){
+        if(!this.isdir(src)){return}
+        this.mkdir_recursive(dst)
+        if(!this.isdir(dst)){return}
+
+        let items = this.list_dir(src,false)
+        for(let item of items){
+            let asrc = this.path.join(src,item)
+            let adst = this.path.join(dst,item)
+            if(this.isfile(asrc)){
+                this.copy_file(asrc,adst,mode)
+            }else if(this.isdir(asrc)){
+                this.mirror_folder(asrc,adst,mode,strict)
+            }
+        }
+        if(strict){
+            this.remove_files_not_in_src(src,dst)
         }
     }
 
