@@ -17,9 +17,15 @@ export class FsEditor{
         return a.basePath.replace(/\\/g,'/');
     }
 
-    abspath(tfile:TFile){
+    get notechain(){
+        let nc = (this.plugin.app as any).plugins.getPlugin('note-chain');
+        return nc
+    }
+
+
+    abspath(tfile:TFile|TFolder){
 		if(tfile){
-			return this.root+'/'+tfile.path;
+			return (this.root+'/'+tfile.path).replace(/\\/g,'/');
 		}else{
 			return null;
 		}
@@ -33,7 +39,27 @@ export class FsEditor{
         return this.fs.existsSync(path) && this.fs.statSync(path).isDirectory();
     }
 
+    list_dir(path:string,as_fullpath=true){
+        if(!this.isdir(path)){return []}
+        let items = this.fs.readdirSync(path)
+        if(as_fullpath){
+            items = items.map(
+                (x:string)=>{
+                    return path+'/'+x
+                }
+            )
+        }   
+        return items
+    }
+
     first_valid_dir(paths:Array<string>|string){
+        if(typeof(paths)=='string'){
+            if(this.isdir(paths)){
+                return paths
+            }else{
+                return null
+            }
+        }
         for(let path of paths){
             if(this.isdir(path)){
                 return path;
@@ -62,7 +88,7 @@ export class FsEditor{
 
     mkdir_recursive(path:string){
         if(this.isdir(path)){return true;}
-        const parent = this.path.dirname(path);
+        let parent = this.path.dirname(path);
         if(!this.isdir(parent)){
             this.mkdir_recursive(parent);
         }
@@ -74,7 +100,7 @@ export class FsEditor{
 	* overwrite，复盖；mtime，新文件；
 	*/
     copy_file(src:string,dst:string,mode='pass>overwrite>mtime') {
-        const fs = this.fs;
+        let fs = this.fs;
 
         mode = mode.split('>')[0]
         if(!fs.existsSync(src)){
@@ -120,12 +146,10 @@ export class FsEditor{
             this.mkdir_recursive(this.path.dirname(dst));
 			this.copy_file(src,dst,mode);
             if(attachment){
-                console.log('attachment')
-                let nc = (this.plugin.app as any).plugins.getPlugin('note-chain');
+                let nc = this.notechain;
                 if(!nc){return;}
                 let tfiles = nc.chain.get_outlinks(tfile,false);
                 for(let t of tfiles){
-                    console.log(t.name)
                     if(!(t.extension==='md')){
                         this.mirror_tfile(t,vault_root,mode,false);
                     }else if(outlink){
@@ -136,7 +160,7 @@ export class FsEditor{
 		}
     }
 
-    mirror_tfolder(tfolder:TFolder,vault_root:string,mode='mtime',attachment=true,outlink=false){
+    mirror_tfolder(tfolder:TFolder,vault_root:string,mode='mtime',attachment=true,outlink=false,strict=false){
         if(tfolder){
             for(let t of tfolder.children){
                 if(t instanceof TFolder){
@@ -145,16 +169,43 @@ export class FsEditor{
                     this.mirror_tfile(t,vault_root,mode,attachment,outlink);
                 }
             }
+            if(strict){
+                let dst = vault_root+'/'+tfolder.path
+                let src = this.abspath(tfolder)
+                if(src && dst){
+                    this.remove_files_not_in_src(src,dst)
+                }
+            }
 		}
     }
 
+    remove_files_not_in_src(src:string,dst:string){
+        console.log(src,dst)
+        if(!this.isdir(src) || !this.isdir(dst)){return}
+        let items = this.list_dir(dst,false)
+        for(let item of items){
+            console.log(item)
+            let adst = dst+'/'+item
+            let asrc = src+'/'+item
+            if(this.isfile(adst)){
+                if(!this.isfile(asrc)){
+                    this.fs.unlinkSync(adst)
+                }
+            }else if(this.isdir(adst)){
+                if(!this.isdir(asrc)){
+                    this.fs.rmdirSync(dst)
+                }
+            }
+        }
+    }
+
     modify(path:string,callback:Function,encoding='utf8'){
-        const fs = this.fs;
+        let fs = this.fs;
         if(!fs.existsSync(path)){return};
 
         fs.readFile(path, encoding, (err:Error, data:string) => {
 			if(err){
-                console.error('Error reading file:', err);;
+                console.error('Error reading file:', err);
             }
             let rs = callback(path,data);
 			fs.writeFile(path, rs, encoding, (err:Error) => {

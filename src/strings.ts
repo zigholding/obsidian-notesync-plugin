@@ -1,5 +1,5 @@
 
-class Strings{
+export class Strings{
     language:string;
     constructor(){
         let lang = window.localStorage.getItem('language');
