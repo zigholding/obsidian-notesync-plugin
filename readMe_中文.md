@@ -1,3 +1,4 @@
+[Eng](./readMe.md) | [中文版](./readMe_中文.md)
 
 本插件依赖：[Templater](https://github.com/SilentVoid13/Templater) 和 [NoteChain](https://github.com/zigholding/obsidian-notechain-plugin)
 
