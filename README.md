@@ -1,28 +1,48 @@
 
-Install [[NoteChain]] and [[Templater]] first.
+This plugin depends on: [Templater](https://github.com/SilentVoid13/Templater) and [NoteChain](https://github.com/zigholding/obsidian-notechain-plugin)
 
+### Exporting Notes
 
-Right click file for folder in files-explorer
-Click `mirror to other vault`
-Input the root of other vault and then press `enter`
-NoteSync will mirror file or folder and this attachments, with same structure
-You can set default paths of target vaults in setting pages
+Mirroring files or folders:
+1. Right-click on the file or folder in the file list;
+2. Click `Sync to other vault`;
+3. Enter the target vault root directory;
+4. Notes, folders, and attachments embedded in notes will be copied to the target vault following the same file structure. If a file with the same name exists in the target vault, it will be determined whether to overwrite based on the last modified time;
 
-## 导出插件
+Exporting plugins:
+1. `Note Sync: export plugin`
+2. Select the plugin to export;
+3. Choose whether to export `data.json`;
+4. Enter the plugin save directory;
+5. Press Enter to confirm.
 
-Sun command `Note Sync: export plugin`
-Select plugin name
-Select whether to export data.json
-Select vault
+### Exporting Notes as readMe
 
+Execute `Note Sync:Set config to export note` to set export information:
+- `Dir`: Export path
+- `Name`: File name, default is readMe
+- `Assets`: Attachment storage path
+- `RemoveMeta`: Whether to remove metadata, default is true
+- `UseGitLink`: Use Git format for attachment links, default is true
 
+> [!NOTE]+ Example of file export configuration
+> ```yaml
+> note-sync:
+>   Dir: D:\github\ObsidianZ-dev\.obsidian\plugins\note-sync
+>   Name: readMe_en
+>   Assets: ./assets
+>   RemoveMeta: true
+>   UseGitLink: true
+> ```
 
-## 导出笔记
+Then execute `Note Sync:Export current note` to set the export note.
 
+### Settings Page
 
-执行 `Set config to export note` 设置要导出的路径，笔记名称，附件路径，是否移除元数据以及是否将附件双链替换为 Github 格式。然后执行 `Export current note` 即可导出当前笔记。如果不先设置元数据，也可以输入导出路径后导出，但只能导出当前笔记，不支持附件输出。
+![Pasted image 20241215125538.png](./assets/Pasted%20image%2020241215125538.png)
 
-![Pasted image 20240508213503.png](./assets/Pasted%20image%2020240508213503.png)
+> [!NOTE]+ Root dir of vault
+> When exporting plugins, right-click to sync files and select the preset vault. Use line breaks to separate multiple vaults.
 
-
-
+> [!Danger]+ Strict mode
+> When right-clicking to sync a folder, delete notes or attachments that are in the target folder but not in the source folder. This ensures that the synced folder and the current folder are the same. This setting will delete files, please operate with caution.
