@@ -59,10 +59,10 @@ export default class NoteSyncPlugin extends Plugin {
 							}
 						}
 						if(file instanceof TFile){
-							this.fsEditor.mirror_tfile(file,dst,'mtime',true,false);
+							this.fsEditor.sync_tfile(file,dst,'mtime',true,false);
 
 						}else if(file instanceof TFolder){
-							this.fsEditor.mirror_tfolder(file,dst,'mtime',true,false);
+							this.fsEditor.sync_tfolder(file,dst,'mtime',true,false);
 						}
 					});
 				});

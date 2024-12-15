@@ -131,7 +131,7 @@ export class FsEditor{
         return false;
 	}
 
-    mirror_tfile(tfile:TFile,vault_root:string,mode='mtime',attachment=true,outlink=false){
+    sync_tfile(tfile:TFile,vault_root:string,mode='mtime',attachment=true,outlink=false){
         // 将笔记镜像移动到别的库中，文件结构与当前库相同
         if(tfile){
             vault_root = vault_root.replace(/\\/g,'/');
@@ -145,22 +145,22 @@ export class FsEditor{
                 let tfiles = nc.chain.get_outlinks(tfile,false);
                 for(let t of tfiles){
                     if(!(t.extension==='md')){
-                        this.mirror_tfile(t,vault_root,mode,false);
+                        this.sync_tfile(t,vault_root,mode,false);
                     }else if(outlink){
-                        this.mirror_tfile(t,vault_root,mode,false);
+                        this.sync_tfile(t,vault_root,mode,false);
                     }
                 }
             }
 		}
     }
 
-    mirror_tfolder(tfolder:TFolder,vault_root:string,mode='mtime',attachment=true,outlink=false,strict=false){
+    sync_tfolder(tfolder:TFolder,vault_root:string,mode='mtime',attachment=true,outlink=false,strict=false){
         if(tfolder){
             for(let t of tfolder.children){
                 if(t instanceof TFolder){
-                    this.mirror_tfolder(t,vault_root,mode,attachment,outlink);
+                    this.sync_tfolder(t,vault_root,mode,attachment,outlink);
                 }else if(t instanceof TFile){
-                    this.mirror_tfile(t,vault_root,mode,attachment,outlink);
+                    this.sync_tfile(t,vault_root,mode,attachment,outlink);
                 }
             }
             if(strict){
@@ -206,7 +206,7 @@ export class FsEditor{
         }
     }
 
-    mirror_folder(src:string,dst:string,mode='mtime',strict=false){
+    sync_folder(src:string,dst:string,mode='mtime',strict=false){
         if(!this.isdir(src)){return}
         this.mkdir_recursive(dst)
         if(!this.isdir(dst)){return}
@@ -218,7 +218,7 @@ export class FsEditor{
             if(this.isfile(asrc)){
                 this.copy_file(asrc,adst,mode)
             }else if(this.isdir(asrc)){
-                this.mirror_folder(asrc,adst,mode,strict)
+                this.sync_folder(asrc,adst,mode,strict)
             }
         }
         if(strict){

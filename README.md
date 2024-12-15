@@ -5,7 +5,7 @@ This plugin depends on: [Templater](https://github.com/SilentVoid13/Templater) a
 
 ### Exporting Notes
 
-Mirroring files or folders:
+Sync files or folders:
 1. Right-click on the file or folder in the file list;
 2. Click `Sync to other vault`;
 3. Enter the target vault root directory;
@@ -48,3 +48,35 @@ Then execute `Note Sync:Export current note` to set the export note.
 
 > [!Danger]+ Strict mode
 > When right-clicking to sync a folder, delete notes or attachments that are in the target folder but not in the source folder. This ensures that the synced folder and the current folder are the same. This setting will delete files, please operate with caution.
+
+### Functions
+
+`NoteSync` provides three functions for synchronizing files and folders, which can be used in your own script notes.
+
+`mode` specifies the handling method when a file already exists in the target vault:
+- `pass`: Skip;
+- `overwrite`: Overwrite;
+- `mtime`: Take the latest modified time;
+
+
+```js
+let ns = app.plugins.plugins['note-sync']
+
+// 同步系统文件夹
+ns.fsEditor.sync_folder(
+	src:string,
+	dst:string,
+	mode='mtime',
+	strict=false
+)
+
+// 同步笔记文件夹
+ns.fsEditor.sync_tfolder(
+	tfolder:TFolder,
+	vault_root:string,
+	mode='mtime',
+	attachment=true,
+	outlink=false,
+	strict=false
+)
+```
