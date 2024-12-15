@@ -5,10 +5,12 @@ import {
 import NoteSyncPlugin from '../main';
 
 export interface MySettings {
+	strict_mode: boolean;
 	vaultDir:string;
 }
 
 export const DEFAULT_SETTINGS: MySettings = {
+	strict_mode:false,
 	vaultDir:''
 }
 
@@ -52,5 +54,11 @@ export class MySettingTab extends PluginSettingTab {
 						this.plugin.settings.vaultDir = value;
 						await this.plugin.saveSettings();
 					}));
+					
+		this.add_toggle(
+			this.plugin.strings.setting_strict_mode,
+			this.plugin.strings.setting_strict_mode_desc,
+			'strict_mode'
+		);
 	}
 }

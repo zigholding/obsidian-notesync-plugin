@@ -65,6 +65,22 @@ export class Strings{
         }
     }
 
+    get setting_strict_mode(){
+        if(this.language=='zh'){
+            return '严格模式?';
+        }else{
+            return 'Strict mode?';
+        }
+    }
+
+    get setting_strict_mode_desc(){
+        if(this.language=='zh'){
+            return '危险！同步时删除目标库中多出的文件';
+        }else{
+            return 'Danger! Delet files or folders in target vault but not in current vault.';
+        }
+    }
+
     get item_copy_data_json(){
         if(this.language=='zh'){
             return '复制 data.json';
@@ -78,6 +94,14 @@ export class Strings{
             return '跳过 data.json';
         }else{
             return 'Skip data.json';
+        }
+    }
+
+    get item_sync_vault(){
+        if(this.language=='zh'){
+            return '同步到其它库';
+        }else{
+            return 'Sync to other vault';
         }
     }
 }

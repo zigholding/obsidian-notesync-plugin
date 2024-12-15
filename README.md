@@ -1,13 +1,28 @@
 
-需要先安装 [[obsidian-notechain-plugin]] 和 [[Templater]] 插件。
+Install [[NoteChain]] and [[Templater]] first.
 
-`Vault Exporter: Set Git Project`：将当前笔记绑定项目笔记。输入目录，生成 `LocalGitProject` 的元数据。
 
-![Pasted image 20240422220412.png](./assets/Pasted image 20240422220412.png)
+Right click file for folder in files-explorer
+Click `mirror to other vault`
+Input the root of other vault and then press `enter`
+NoteSync will mirror file or folder and this attachments, with same structure
+You can set default paths of target vaults in setting pages
 
-`Vault Exporter: Export readMe`：将当前笔记输出到 readme，笔记引用的图和文件复制到 `LocalGitProject/assets` 下。复制 readme 时，会更换链接。
+## 导出插件
 
-元数据和附录可以在设置页面更改。
+Sun command `Note Sync: export plugin`
+Select plugin name
+Select whether to export data.json
+Select vault
 
-![Pasted image 20240422213449.png](./assets/Pasted image 20240422213449.png)
+
+
+## 导出笔记
+
+
+执行 `Set config to export note` 设置要导出的路径，笔记名称，附件路径，是否移除元数据以及是否将附件双链替换为 Github 格式。然后执行 `Export current note` 即可导出当前笔记。如果不先设置元数据，也可以输入导出路径后导出，但只能导出当前笔记，不支持附件输出。
+
+![Pasted image 20240508213503.png](./assets/Pasted%20image%2020240508213503.png)
+
+
 

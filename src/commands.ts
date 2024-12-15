@@ -31,7 +31,7 @@ const cmd_set_vexporter = (plugin:NoteSyncPlugin) => ({
 
 		await nc.editor.set_frontmatter(
 			nc.chain.current_note,
-			'vexporter',
+			plugin.yaml,
 			item
 		)
 	}
@@ -67,8 +67,8 @@ const cmd_export_plugin = (plugin:NoteSyncPlugin) => ({
 			}
 			let items = ['main.js','manifest.json','styles.css'];
 			let dj = await plugin.fsEditor.notechain.chain.tp_suggester(
-				[plugin.strings.item_copy_data_json,plugin.strings.item_skip_data_json],
-				[true,false],true,''
+				[plugin.strings.item_skip_data_json,plugin.strings.item_copy_data_json],
+				[false,true],true,''
 			)
 			if(dj){
 				items.push('data.json')
