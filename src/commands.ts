@@ -2,9 +2,9 @@ import {
 	Notice, TFile
 } from 'obsidian';
 
-import VaultExpoterPlugin from '../main';
+import NoteSyncPlugin from '../main';
 
-const cmd_export_current_note = (plugin:VaultExpoterPlugin) => ({
+const cmd_export_current_note = (plugin:NoteSyncPlugin) => ({
 	id: 'cmd_export_current_note',
 	name: plugin.strings.cmd_export_current_note,
 	callback: async () => {
@@ -14,7 +14,7 @@ const cmd_export_current_note = (plugin:VaultExpoterPlugin) => ({
 	}
 });
 
-const cmd_set_vexporter = (plugin:VaultExpoterPlugin) => ({
+const cmd_set_vexporter = (plugin:NoteSyncPlugin) => ({
 	id: 'cmd_set_vexporter',
 	name: plugin.strings.cmd_set_vexporter,
 	callback: async () => {
@@ -37,7 +37,7 @@ const cmd_set_vexporter = (plugin:VaultExpoterPlugin) => ({
 	}
 });
 
-const cmd_export_plugin = (plugin:VaultExpoterPlugin) => ({
+const cmd_export_plugin = (plugin:NoteSyncPlugin) => ({
 	id: 'cmd_export_plugin',
 	name: plugin.strings.cmd_export_plugin,
 	callback: async () => {
@@ -47,8 +47,13 @@ const cmd_export_plugin = (plugin:VaultExpoterPlugin) => ({
 		let p = await nc.chain.tp_suggester(plugins,plugins);
 		let eplugin = (plugin.app as any).plugins.getPlugin(p);
 		if(eplugin){
+			let paths = plugin.settings.vaultDir.split("\n").map(
+				(x:string)=>{
+					return plugin.fsEditor.path.join(x,'.obsidian','plugins')
+				}
+			)
 			let target = await plugin.fsEditor.select_valid_dir(
-				plugin.settings.pluginDirExporter.split("\n")
+				paths
 			)
 			if(!plugin.fsEditor.fs.existsSync(target)){
 				target = await nc.chain.tp_prompt(plugin.strings.prompt_path_of_folder);
@@ -62,7 +67,8 @@ const cmd_export_plugin = (plugin:VaultExpoterPlugin) => ({
 			}
 			let items = ['main.js','manifest.json','styles.css'];
 			let dj = await plugin.fsEditor.notechain.chain.tp_suggester(
-				['true','false'],[true,false],true,'Export data.json?'
+				[plugin.strings.item_copy_data_json,plugin.strings.item_skip_data_json],
+				[true,false],true,''
 			)
 			if(dj){
 				items.push('data.json')
@@ -70,9 +76,11 @@ const cmd_export_plugin = (plugin:VaultExpoterPlugin) => ({
 			for(let item of items){
 				let src = `${plugin.fsEditor.root}/${eplugin.manifest.dir}/${item}`;
 				let dst = `${target}/${item}`;
-				plugin.fsEditor.copy_file(src,dst,'overwrite');
+				let flag = plugin.fsEditor.copy_file(src,dst,'overwrite');
+				if(flag){
+					new Notice(`Copy ${item} to ${target}`,5000)
+				}
 			}
-			
 		}
 	}
 });
@@ -87,7 +95,7 @@ const commandBuildersDesktop:Array<Function> = [
 	cmd_export_plugin
 ];
 
-export function addCommands(plugin:VaultExpoterPlugin) {
+export function addCommands(plugin:NoteSyncPlugin) {
     commandBuilders.forEach((c) => {
         plugin.addCommand(c(plugin));
     });

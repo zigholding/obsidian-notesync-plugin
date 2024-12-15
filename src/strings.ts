@@ -57,19 +57,27 @@ export class Strings{
         }
     }
 
-    get setting_plugin_dir(){
-        if(this.language=='zh'){
-            return '插件导出目录';
-        }else{
-            return 'Plugin dir to export';
-        }
-    }
-
     get setting_vault_dir(){
         if(this.language=='zh'){
             return '库目录';
         }else{
             return 'Root dir of vault';
+        }
+    }
+
+    get item_copy_data_json(){
+        if(this.language=='zh'){
+            return '复制 data.json';
+        }else{
+            return 'Copy data.json';
+        }
+    }
+
+    get item_skip_data_json(){
+        if(this.language=='zh'){
+            return '跳过 data.json';
+        }else{
+            return 'Skip data.json';
         }
     }
 }

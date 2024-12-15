@@ -3,13 +3,13 @@ import { App, Editor, MarkdownView, Modal, Notice, Plugin, PluginSettingTab, Set
 
 import { FsEditor } from 'src/fseditor';
 import { Strings } from 'src/strings';
-import {VExporterSettings,VExporterSettingTab,DEFAULT_SETTINGS} from 'src/setting'
+import {MySettings,MySettingTab,DEFAULT_SETTINGS} from 'src/setting'
 
 import { addCommands } from 'src/commands';
 
-export default class VaultExpoterPlugin extends Plugin {
+export default class NoteSyncPlugin extends Plugin {
 	strings : Strings;
-	settings: VExporterSettings;
+	settings: MySettings;
 	fsEditor : FsEditor;
 
 
@@ -31,7 +31,7 @@ export default class VaultExpoterPlugin extends Plugin {
 		await this.loadSettings();
 		this.fsEditor = new FsEditor(this);
 		// This adds a settings tab so the user can configure various aspects of the plugin
-		this.addSettingTab(new VExporterSettingTab(this.app, this));
+		this.addSettingTab(new MySettingTab(this.app, this));
 		addCommands(this);
 
 		this.registerEvent(

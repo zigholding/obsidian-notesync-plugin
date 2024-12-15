@@ -72,8 +72,6 @@ export class FsEditor{
         let xpaths = paths.filter((p:string)=>this.isdir(p));
         if(xpaths.length===0){
             return null;
-        }else if(xpaths.length==1){
-            return xpaths[0];
         }else{
             let nc = (this.plugin.app as any).plugins.getPlugin('note-chain');
             if(nc){
@@ -84,7 +82,6 @@ export class FsEditor{
             }
         }
     }
-    
 
     mkdir_recursive(path:string){
         if(this.isdir(path)){return true;}

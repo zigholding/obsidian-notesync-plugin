@@ -2,30 +2,28 @@ import {
 	App, PluginSettingTab, Setting,Plugin
 } from 'obsidian';
 
-import VaultExpoterPlugin from '../main';
+import NoteSyncPlugin from '../main';
 
-export interface VExporterSettings {
-	pluginDirExporter:string;
+export interface MySettings {
 	vaultDir:string;
 }
 
-export const DEFAULT_SETTINGS: VExporterSettings = {
-	pluginDirExporter:'',
+export const DEFAULT_SETTINGS: MySettings = {
 	vaultDir:''
 }
 
-export class VExporterSettingTab extends PluginSettingTab {
-	plugin: VaultExpoterPlugin;
-	constructor(app: App, plugin: VaultExpoterPlugin) {
+export class MySettingTab extends PluginSettingTab {
+	plugin: NoteSyncPlugin;
+	constructor(app: App, plugin: NoteSyncPlugin) {
 		super(app, plugin);
 		this.plugin = plugin;
 	}
 
-	getSettingValue(field: keyof VExporterSettings) {
+	getSettingValue(field: keyof MySettings) {
 		return this.plugin.settings[field];
 	}
 
-	add_toggle(name:string,desc:string,field:keyof VExporterSettings){
+	add_toggle(name:string,desc:string,field:keyof MySettings){
 		let {containerEl} = this;
 		let value = (this.plugin.settings as any)[field] as boolean;
 		let item = new Setting(containerEl)  
@@ -45,15 +43,6 @@ export class VExporterSettingTab extends PluginSettingTab {
 		const {containerEl} = this;
 
 		containerEl.empty();
-		
-		new Setting(containerEl)
-			.setName(this.plugin.strings.setting_plugin_dir)
-			.addTextArea(text => text
-				.setValue(this.plugin.settings.pluginDirExporter)
-				.onChange(async (value) => {
-					this.plugin.settings.pluginDirExporter = value;
-					await this.plugin.saveSettings();
-				}));
 		
 		new Setting(containerEl)
 				.setName(this.plugin.strings.setting_vault_dir)
