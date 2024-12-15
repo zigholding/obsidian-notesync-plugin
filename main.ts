@@ -139,14 +139,14 @@ export default class NoteSyncPlugin extends Plugin {
 		// 导出附件
 		let assets = nc.editor.get_frontmatter(tfile,this.yaml)?.Assets;
 		if(assets){
-			let olinks = nc.chain.get_outlinks(tfile);
+			let olinks = nc.chain.get_outlinks(tfile,false);
 			let adir = dst+'/'+assets;
 			this.fsEditor.mkdir_recursive(adir);
 			for(let f of olinks){
 				if(!(f.extension==='md')){
 					let flag = this.fsEditor.copy_tfile(f,adir+'/'+f.basename+'.'+f.extension);
 					if(flag){
-						new Notice(`Copy ${f}`,5000)
+						new Notice(`Copy ${f.name}`,5000)
 					}
 				}
 			}
