@@ -1,5 +1,5 @@
 
-[Eng](./readMe.md) | [中文版](./readMe_中文.md) | 
+[Eng](./README.md) | [中文版](./readMe_中文.md)
 
 This plugin depends on: [Templater](https://github.com/SilentVoid13/Templater) and [NoteChain](https://github.com/zigholding/obsidian-notechain-plugin)
 
