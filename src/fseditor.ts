@@ -232,15 +232,11 @@ export class FsEditor{
 
         fs.readFile(path, encoding, (err:Error, data:string) => {
 			if(err){
-                console.error('Error reading file:', err);
+                return;
             }
             let rs = callback(path,data);
 			fs.writeFile(path, rs, encoding, (err:Error) => {
-			  if (err) {
-				console.error('Error writing file:', err);
-			  } else {
-				console.log('File content updated successfully.');
-			  }
+                return;
 			});
 		  }
         );
