@@ -61,11 +61,18 @@ const cmd_export_plugin = (plugin:VaultExpoterPlugin) => ({
 				plugin.fsEditor.fs.mkdirSync(target);
 			}
 			let items = ['main.js','manifest.json','styles.css'];
+			let dj = await plugin.fsEditor.notechain.chain.tp_suggester(
+				['true','false'],[true,false],true,'Export data.json?'
+			)
+			if(dj){
+				items.push('data.json')
+			}
 			for(let item of items){
 				let src = `${plugin.fsEditor.root}/${eplugin.manifest.dir}/${item}`;
 				let dst = `${target}/${item}`;
 				plugin.fsEditor.copy_file(src,dst,'overwrite');
 			}
+			
 		}
 	}
 });
