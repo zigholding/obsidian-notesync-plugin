@@ -47,17 +47,33 @@ const cmd_export_plugin = (plugin:NoteSyncPlugin) => ({
 		let p = await nc.chain.tp_suggester(plugins,plugins);
 		let eplugin = (plugin.app as any).plugins.getPlugin(p);
 		if(eplugin){
-			let paths = plugin.settings.vaultDir.split("\n").map(
-				(x:string)=>{
-					return plugin.fsEditor.path.join(x,'.obsidian','plugins')
-				}
-			)
+			let paths = plugin.settings.vaultDir.split("\n")
 			let target = await plugin.fsEditor.select_valid_dir(
 				paths
 			)
-			if(!plugin.fsEditor.fs.existsSync(target)){
+			if(target){
+				let items = plugin.fsEditor.list_dir(target,false)
+				items = items.filter((x:string)=>x.startsWith('.') && x!='.git').filter(
+					(x:string)=>plugin.fsEditor.isdir(
+						plugin.fsEditor.path.join(target,x)
+					)
+				)
+				if(items.length==1){
+					target = plugin.fsEditor.path.join(target,items[0],'plugins')
+				}else if(items.length>1){
+					let item = await plugin.fsEditor.notechain.chain.tp_suggester(
+						items,items,true,'config'
+					)
+					if(item){
+						target = plugin.fsEditor.path.join(target,item,'plugins')
+					}
+				}
+			}
+			if(!plugin.fsEditor.fs.existsSync(target) || 
+				plugin.fsEditor.path.basename(target)!='plugins'){
 				target = await nc.chain.tp_prompt(plugin.strings.prompt_path_of_folder);
 			}
+
 			target = target.replace(/\\/g,'/');
 			if(!target.endsWith('/' + p)){
 				target = target + '/' + p;
