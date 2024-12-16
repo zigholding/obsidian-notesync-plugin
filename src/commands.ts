@@ -3,6 +3,7 @@ import {
 } from 'obsidian';
 
 import NoteSyncPlugin from '../main';
+import { it } from 'node:test';
 
 const cmd_export_current_note = (plugin:NoteSyncPlugin) => ({
 	id: 'cmd_export_current_note',
@@ -54,9 +55,14 @@ const cmd_export_plugin = (plugin:NoteSyncPlugin) => ({
 			if(target){
 				let items = plugin.fsEditor.list_dir(target,false)
 				items = items.filter((x:string)=>x.startsWith('.') && x!='.git').filter(
-					(x:string)=>plugin.fsEditor.isdir(
-						plugin.fsEditor.path.join(target,x)
-					)
+					(x:string)=>{
+						let path = plugin.fsEditor.path.join(target,x)
+						if(!plugin.fsEditor.isdir(path)){
+							return false
+						}
+						let items = plugin.fsEditor.list_dir(path,false)
+						return items.contains('plugins')
+					}
 				)
 				if(items.length==1){
 					target = plugin.fsEditor.path.join(target,items[0],'plugins')
