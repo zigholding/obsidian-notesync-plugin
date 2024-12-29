@@ -1,15 +1,17 @@
 
 import { App, Editor, MarkdownView, Modal, Notice, Plugin, PluginSettingTab, Setting, TFile, TFolder } from 'obsidian';
-
+import NoteSyncPlugin from "../main";
 export class FsEditor{
     fs;
+    app:App;
     path;
-    plugin :Plugin;
+    plugin :NoteSyncPlugin;
 
-    constructor(plugin:Plugin){
+    constructor(plugin:NoteSyncPlugin){
         this.plugin = plugin;
-        this.fs = require('fs');
-        this.path = require('path');
+        this.app = plugin.app;
+        this.fs = (plugin.app.vault.adapter as any).fs;
+        this.path = (plugin.app.vault.adapter as any).path;
     }
 
     get root(){
@@ -17,10 +19,94 @@ export class FsEditor{
         return a.basePath.replace(/\\/g,'/');
     }
 
-    get notechain(){
-        let nc = (this.plugin.app as any).plugins.getPlugin('note-chain');
-        return nc
-    }
+    get_tfile(path:string,only_first=true){
+		try{
+			path = path.split('|')[0].replace('[[','').replace(']]','');
+			let tfile = this.app.vault.getFileByPath(path)
+			if(tfile){
+				return tfile;
+			}
+
+			let tfiles = (this.app.metadataCache as any).uniqueFileLookup.get(path.toLowerCase());
+			if(!tfiles){
+				tfiles = (this.app.metadataCache as any).uniqueFileLookup.get(path.toLowerCase()+'.md');
+				if(!tfiles){
+					return null;
+				}else{
+					path = path+'.md'
+				}
+			}
+
+			let ctfiles = tfiles.filter((x:TFile)=>x.name==path)
+			if(ctfiles.length>0){
+				if(only_first){
+					return ctfiles[0]
+				}else{
+					return ctfiles
+				}
+			}
+
+			if(tfiles.length>0){
+				if(only_first){
+					return tfiles[0]
+				}else{
+					return tfiles
+				}
+			}
+			return null;
+		}catch{
+			// console.log(path)
+			return null
+		}
+	}
+
+    get_inlinks(tfile:TFile,only_md=true):Array<TFile>{
+		if(tfile==null){return [];}
+		let res:Array<TFile> = []
+
+		let inlinks = (this.app.metadataCache as any).getBacklinksForFile(tfile);
+		for(let [k,v] of inlinks.data){
+			let curr = this.app.vault.getFileByPath(k);
+			if(curr){
+				res.push(curr)
+			}
+		}
+		return res;
+	}
+
+	get_outlinks(tfile:TFile,only_md=true):Array<TFile>{
+		if(tfile==null){return [];}
+
+		let mcache = this.app.metadataCache.getFileCache(tfile);
+		if(!mcache){return [];}
+
+		let res:Array<TFile> = [];
+		if(mcache.links){
+			for(let link of mcache.links){
+				let tfile = this.get_tfile(link.link);
+				if(tfile && !res.contains(tfile) && !(only_md && tfile.extension!='md')){
+					res.push(tfile);
+				}
+			}
+		}
+		if(mcache.frontmatterLinks){
+			for(let link of mcache.frontmatterLinks){
+				let tfile = this.get_tfile(link.link);
+				if(tfile && !res.contains(tfile) && !(only_md && tfile.extension!='md')){
+					res.push(tfile);
+				}
+			}
+		}
+		if(!only_md && mcache.embeds){
+			for(let link of mcache.embeds){
+				let tfile = this.get_tfile(link.link);
+				if(tfile && !res.contains(tfile)){
+					res.push(tfile);
+				}
+			}
+		}
+		return res;
+	}
 
 
     abspath(tfile:TFile|TFolder){
@@ -68,19 +154,20 @@ export class FsEditor{
         return null;
     }
 
-    async select_valid_dir(paths:Array<string>){
+    async select_valid_dir(paths:Array<string>,prompt_if_null=false){
         let xpaths = paths.filter((p:string)=>this.isdir(p));
-        if(xpaths.length===0){
-            return null;
-        }else{
-            let nc = (this.plugin.app as any).plugins.getPlugin('note-chain');
-            if(nc){
-                let path = await nc.chain.tp_suggester(xpaths,xpaths);
-                return path;
-            }else{
-                return null;
+        let path = null;
+        if(xpaths.length>0){
+            path = await this.plugin.dialog_suggest(xpaths,xpaths);
+        }
+        if(!path && prompt_if_null){
+            path = await this.plugin.dialog_prompt("Root of vault");
+            if(!this.isdir(path)){
+                path = null
             }
         }
+        return path
+        
     }
 
     mkdir_recursive(path:string){
@@ -140,9 +227,7 @@ export class FsEditor{
             this.mkdir_recursive(this.path.dirname(dst));
 			this.copy_file(src,dst,mode);
             if(attachment){
-                let nc = this.notechain;
-                if(!nc){return;}
-                let tfiles = nc.chain.get_outlinks(tfile,false);
+                let tfiles = this.get_outlinks(tfile,false);
                 for(let t of tfiles){
                     if(!(t.extension==='md')){
                         this.sync_tfile(t,vault_root,mode,false);

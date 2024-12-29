@@ -9,8 +9,7 @@ const cmd_export_current_note = (plugin:NoteSyncPlugin) => ({
 	id: 'cmd_export_current_note',
 	name: plugin.strings.cmd_export_current_note,
 	callback: async () => {
-		const nc = plugin.notechain;
-		let tfile = nc.chain.current_note;
+		let tfile = plugin.app.workspace.getActiveFile();
 		await plugin.export_readme(tfile,null);
 	}
 });
@@ -19,8 +18,9 @@ const cmd_set_vexporter = (plugin:NoteSyncPlugin) => ({
 	id: 'cmd_set_vexporter',
 	name: plugin.strings.cmd_set_vexporter,
 	callback: async () => {
-		const nc = plugin.notechain;
-		let dir = await nc.chain.tp_prompt(plugin.strings.prompt_path_of_folder);
+		let tfile = plugin.app.workspace.getActiveFile();
+		if(!tfile){return}
+		let dir = await plugin.dialog_prompt(plugin.strings.prompt_path_of_folder);
 		let item: { [key: string]: any } = {};
 		if(plugin.fsEditor.fs.existsSync(dir)){
 			item['Dir'] = dir;
@@ -30,10 +30,12 @@ const cmd_set_vexporter = (plugin:NoteSyncPlugin) => ({
 		item['RemoveMeta'] = true;
 		item['UseGitLink'] = true;
 
-		await nc.editor.set_frontmatter(
-			nc.chain.current_note,
-			plugin.yaml,
-			item
+
+		await plugin.app.fileManager.processFrontMatter(
+			tfile,
+			async(fm) =>{
+				fm[plugin.yaml] = item
+			}
 		)
 	}
 });
@@ -42,10 +44,9 @@ const cmd_export_plugin = (plugin:NoteSyncPlugin) => ({
 	id: 'cmd_export_plugin',
 	name: plugin.strings.cmd_export_plugin,
 	callback: async () => {
-		const nc = plugin.notechain;
 		
 		let plugins = Object.keys((plugin.app as any).plugins.plugins);
-		let p = await nc.chain.tp_suggester(plugins,plugins);
+		let p = await plugin.dialog_suggest(plugins,plugins);
 		let eplugin = (plugin.app as any).plugins.getPlugin(p);
 		if(eplugin){
 			let paths = plugin.settings.vaultDir.split("\n")
@@ -67,8 +68,8 @@ const cmd_export_plugin = (plugin:NoteSyncPlugin) => ({
 				if(items.length==1){
 					target = plugin.fsEditor.path.join(target,items[0],'plugins')
 				}else if(items.length>1){
-					let item = await plugin.fsEditor.notechain.chain.tp_suggester(
-						items,items,true,'config'
+					let item = await plugin.dialog_suggest(
+						items,items,'config'
 					)
 					if(item){
 						target = plugin.fsEditor.path.join(target,item,'plugins')
@@ -77,7 +78,7 @@ const cmd_export_plugin = (plugin:NoteSyncPlugin) => ({
 			}
 			if(!plugin.fsEditor.fs.existsSync(target) || 
 				plugin.fsEditor.path.basename(target)!='plugins'){
-				target = await nc.chain.tp_prompt(plugin.strings.prompt_path_of_folder);
+				target = await plugin.dialog_prompt(plugin.strings.prompt_path_of_folder);
 			}
 
 			target = target.replace(/\\/g,'/');
@@ -88,9 +89,10 @@ const cmd_export_plugin = (plugin:NoteSyncPlugin) => ({
 				plugin.fsEditor.fs.mkdirSync(target);
 			}
 			let items = ['main.js','manifest.json','styles.css'];
-			let dj = await plugin.fsEditor.notechain.chain.tp_suggester(
+			let dj = await plugin.dialog_suggest(
 				[plugin.strings.item_skip_data_json,plugin.strings.item_copy_data_json],
-				[false,true],true,''
+				[false,true],
+				''
 			)
 			if(dj){
 				items.push('data.json')

@@ -1,5 +1,4 @@
-import * as Module from 'module';
-import { App, Editor, MarkdownView, Modal, Notice, Plugin, PluginSettingTab, Setting, TFile, TFolder } from 'obsidian';
+import {Notice, Plugin, TFile, TFolder } from 'obsidian';
 
 import { FsEditor } from 'src/fseditor';
 import { Strings } from 'src/strings';
@@ -7,23 +6,26 @@ import {MySettings,MySettingTab,DEFAULT_SETTINGS} from 'src/setting'
 
 import { addCommands } from 'src/commands';
 
+import {dialog_suggest} from 'src/gui/inputSuggester'
+import {dialog_prompt} from 'src/gui/inputPrompt'
+
 export default class NoteSyncPlugin extends Plugin {
 	strings : Strings;
 	settings: MySettings;
 	fsEditor : FsEditor;
 	yaml: string;
+	dialog_suggest: Function
+	dialog_prompt: Function
 
 
 	async onload() {
-		if(this.app.workspace.layoutReady){
-			await this._onload_()
-		}else{
-			this.app.workspace.onLayoutReady(
-				async()=>{
-					await this._onload_()
-				}
-			)
-		}
+		this.dialog_suggest = dialog_suggest
+		this.dialog_prompt = dialog_prompt
+		this.app.workspace.onLayoutReady(
+			async()=>{
+				await this._onload_()
+			}
+		)
 	}
 
 	async _onload_() {
@@ -47,12 +49,7 @@ export default class NoteSyncPlugin extends Plugin {
 							this.settings.vaultDir.split("\n")
 						);
 						if(!dst){
-							let nc= (this.app as any).plugins.getPlugin("note-chain");
-							if(!nc){
-								new Notice("Plugin note-chain is needed!");
-								return;
-							}
-							dst = await nc.chain.tp_prompt("Root of vault");
+							dst = await this.dialog_prompt("Root of vault");
 							if(!this.fsEditor.isdir(dst)){
 								new Notice("Invalid root: " + dst);
 								return;
@@ -74,10 +71,6 @@ export default class NoteSyncPlugin extends Plugin {
 		
 	}
 
-	get notechain(){
-		return (this.app as any).plugins.getPlugin('note-chain');
-	}
-
 	async loadSettings() {
 		this.settings = Object.assign({}, DEFAULT_SETTINGS, await this.loadData());
 	}
@@ -86,70 +79,72 @@ export default class NoteSyncPlugin extends Plugin {
 		await this.saveData(this.settings);
 	}
 	
-	async export_readme(tfile:TFile,dst:string|null){
-		let nc = (this.app as any).plugins.getPlugin('note-chain');
-		if(!tfile){tfile = nc.chain.current_note;}
-		
-		// 设置输出目录
-		if(!dst){
-			dst = nc.editor.get_frontmatter(tfile,this.yaml)?.Dir;
-			if(!dst){
-				dst = await nc.chain.tp_prompt('Path of LocalGitProject');
-			}
-		}
-		if(!dst || !this.fsEditor.fs.existsSync(dst)){
-			new Notice(this.strings.notice_nosuchdir,3000);
-			return;
-		}
-		dst = dst.replace(/\\/g,'/');
-		
-		
-		// 导出当前笔记
-		let tmp;
-		let name = nc.editor.get_frontmatter(tfile,this.yaml)?.Name;
-		if(name && !(name==='')){
-			tmp = dst+'/'+name+'.md';
-		}else{
-			tmp = dst+'/'+tfile.basename+'.md';
-		}
+	async export_readme(tfile:TFile|null,dst:string|null){
+		if(!tfile){tfile = this.app.workspace.getActiveFile();}
+		if(!tfile){return}
 
-		if(this.fsEditor.copy_tfile(tfile,tmp)){
-			if(nc.editor.get_frontmatter(tfile,this.yaml)?.RemoveMeta){
-				const ufunc = (path:string,data:string)=>{
-					let res = data;
-					if(nc.editor.get_frontmatter(tfile,this.yaml)?.RemoveMeta){
-						res = res.replace(
-							/---[\n(\r\n)][\s\S]*?---[\n(\r\n)]/,
-							''
-						)
+		await this.app.fileManager.processFrontMatter(
+			tfile,
+			async(fm) =>{
+				// set output dir/设置输出目录
+				if(!dst){
+					dst = fm[this.yaml]?.Dir
+					if(!dst){
+						dst = await this.dialog_prompt('Path of LocalGitProject');
 					}
-					if(nc.editor.get_frontmatter(tfile,this.yaml)?.UseGitLink && assets){
-						res = res.replace(
-							/\!\[\[(.*?)\]\]/g,
-							(match:any, name:string) => {
-								return `![${name}](${assets}/${name.replace(/ /g,'%20')})`;
+				}
+				
+				if(!dst || !this.fsEditor.isdir(dst)){
+					new Notice(this.strings.notice_nosuchdir,3000);
+					return;
+				}
+				dst = dst.replace(/\\/g,'/');
+
+				// set target filename/文件名
+				let target;
+				let name = fm[this.yaml]?.Name;
+				if(name && !(name=='')){
+					target = dst+'/'+name+'.md';
+				}else{
+					target = dst+'/'+tfile.basename+'.md';
+				}
+				
+				let data = await this.app.vault.cachedRead(tfile)
+				if(fm[this.yaml]?.RemoveMeta){
+					data = data.replace(
+						/---[\n(\r\n)][\s\S]*?---[\n(\r\n)]/,
+						''
+					)
+				}
+				let assets = fm[this.yaml]?.Assets
+
+				if(fm[this.yaml]?.UseGitLink && assets){
+					data = data.replace(
+						/\!\[\[(.*?)\]\]/g,
+						(match:any, name:string) => {
+							return `![${name}](${assets}/${name.replace(/ /g,'%20')})`;
+						}
+					)
+				}
+				await this.fsEditor.fs.writeFile(
+					target, data, 'utf-8', 
+					(err:Error) => {return;}
+				)
+				new Notice(`Export to ${target}`,5000)
+				if(assets){
+					let olinks = this.fsEditor.get_outlinks(tfile,false);
+					let adir = this.fsEditor.path.join(dst,assets);
+					this.fsEditor.mkdir_recursive(adir);
+					for(let f of olinks){
+						if(!(f.extension==='md')){
+							let flag = this.fsEditor.copy_tfile(f,adir+'/'+f.basename+'.'+f.extension);
+							if(flag){
+								new Notice(`Copy ${f.name}`,5000)
 							}
-						)
-					}
-					return res
-				}
-				await this.fsEditor.modify(tmp,ufunc);
-			}
-		}
-		// 导出附件
-		let assets = nc.editor.get_frontmatter(tfile,this.yaml)?.Assets;
-		if(assets){
-			let olinks = nc.chain.get_outlinks(tfile,false);
-			let adir = dst+'/'+assets;
-			this.fsEditor.mkdir_recursive(adir);
-			for(let f of olinks){
-				if(!(f.extension==='md')){
-					let flag = this.fsEditor.copy_tfile(f,adir+'/'+f.basename+'.'+f.extension);
-					if(flag){
-						new Notice(`Copy ${f.name}`,5000)
+						}
 					}
 				}
 			}
-		}
+		)
 	}
 }
