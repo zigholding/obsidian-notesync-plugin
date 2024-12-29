@@ -86,7 +86,7 @@ export default class NoteSyncPlugin extends Plugin {
 		await this.app.fileManager.processFrontMatter(
 			tfile,
 			async(fm) =>{
-
+				if(!tfile){return}
 				// set output dir/设置输出目录
 				if(!dst){
 					dst = fm[this.yaml]?.Dir
@@ -110,7 +110,7 @@ export default class NoteSyncPlugin extends Plugin {
 					target = dst+'/'+tfile.basename+'.md';
 				}
 				
-				if(!tfile){return}
+				
 				let data = await this.app.vault.cachedRead(tfile)
 				if(fm[this.yaml]?.RemoveMeta){
 					data = data.replace(
