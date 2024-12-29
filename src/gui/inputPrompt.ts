@@ -71,11 +71,11 @@ export default class InputPrompt extends Modal {
 	) {
 		const textComponent = new TextComponent(container);
 
-		textComponent.inputEl.style.width = "100%";
-		textComponent
+		(textComponent as any).inputEl.style.width = "100%";
+		(textComponent as any)
 			.setPlaceholder(placeholder ?? "")
 			.setValue(value ?? "")
-			.onChange((value) => (this.input = value))
+			.onChange((value:string) => (this.input = value))
 			.inputEl.addEventListener("keydown", this.submitEnterCallback);
 
 		return textComponent;

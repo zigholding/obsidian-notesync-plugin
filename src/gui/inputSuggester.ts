@@ -1,6 +1,21 @@
 import { FuzzySuggestModal } from "obsidian";
 import type { FuzzyMatch , App} from "obsidian";
 
+// 添加类型声明
+interface SuggesterChooser {
+	values: {
+		item: string;
+		match: { score: number; matches: unknown[] };
+	}[];
+	selectedItem: number;
+	[key: string]: unknown;
+}
+
+// 扩展FuzzySuggestModal的类型
+interface ExtendedFuzzySuggestModal extends FuzzySuggestModal<string> {
+	chooser: SuggesterChooser;
+}
+
 type Options = {
 	limit: FuzzySuggestModal<string>["limit"];
 	emptyStateText: FuzzySuggestModal<string>["emptyStateText"];
@@ -11,12 +26,15 @@ type Options = {
 		: never;
 };
 
-
+/**
+ * Copy from QuickAdd
+ */
 export default class InputSuggester extends FuzzySuggestModal<string> {
 	private resolvePromise: (value: string) => void;
 	private rejectPromise: (reason?: unknown) => void;
 	public promise: Promise<string>;
 	private resolved: boolean;
+	inputEl: any;
 
 	public static Suggest(
 		app: App,
@@ -47,19 +65,13 @@ export default class InputSuggester extends FuzzySuggestModal<string> {
 		});
 
 		this.inputEl.addEventListener("keydown", (event: KeyboardEvent) => {
-			// chooser is undocumented & not officially a part of the Obsidian API, hence the precautions in using it.
-			if (event.code !== "Tab" || !("chooser" in this)) {
+			if (event.code !== "Tab") {
 				return;
 			}
 
-			const { values, selectedItem } = this.chooser as {
-				values: {
-					item: string;
-					match: { score: number; matches: unknown[] };
-				}[];
-				selectedItem: number;
-				[key: string]: unknown;
-			};
+			// 使用类型断言来访问chooser
+			const self = this as unknown as ExtendedFuzzySuggestModal;
+			const { values, selectedItem } = self.chooser;
 
 			const { value } = this.inputEl;
 			this.inputEl.value = values[selectedItem].item ?? value;
@@ -114,7 +126,8 @@ export async function dialog_suggest(displayItems:Array<string>,items:Array<any>
 				placeholder: placeholder,
 			}
 		)
-	}catch{
+	}catch(error){
+		
 		return null
 	}
 	

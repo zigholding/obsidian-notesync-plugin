@@ -1,0 +1,185 @@
+[33mcommit 5b6de2943189e6a5c2b338e3e9e23d2f87dbaa58[m[33m ([m[1;36mHEAD[m[33m -> [m[1;32mmain[m[33m, [m[1;33mtag: [m[1;33m0.5.0[m[33m, [m[1;31morigin/main[m[33m)[m
+Author: zigholding <jianhanglan@163.com>
+Date:   Sun Dec 29 12:32:53 2024 +0800
+
+    fix action bug
+
+[33mcommit 7f814a19ccc3af0c0a6aa4b6e8d1dcffaca2c11d[m
+Author: zigholding <jianhanglan@163.com>
+Date:   Sun Dec 29 12:23:57 2024 +0800
+
+    change for https://github.com/obsidianmd/obsidian-releases/pull/4903
+
+[33mcommit 5cfb94be1e5b963d567addcde29caeb7457e1f35[m
+Author: zigholding <jianhanglan@163.com>
+Date:   Mon Dec 16 13:02:05 2024 +0800
+
+    只选择有plugins目录的配置
+
+[33mcommit 73e4e20350355797b85a4f6997d3b5f1a3de1ac7[m
+Author: zigholding <jianhanglan@163.com>
+Date:   Mon Dec 16 12:51:58 2024 +0800
+
+    select config folder
+
+[33mcommit cae85bb6b745934ebe83cd90af82b0dca81c03d2[m
+Author: zigholding <jianhanglan@163.com>
+Date:   Sun Dec 15 13:50:38 2024 +0800
+
+    remove console.log
+
+[33mcommit a642ab980fb0731e5240e0f41956c65721b5f31b[m
+Author: zigholding <jianhanglan@163.com>
+Date:   Sun Dec 15 13:45:12 2024 +0800
+
+    add license
+
+[33mcommit 9f69c5beddf7ec92a9c36c266b469312d26cbaee[m
+Author: zigholding <jianhanglan@163.com>
+Date:   Sun Dec 15 13:35:25 2024 +0800
+
+    update
+
+[33mcommit a44f95922ed33c4b72099ffff40a9013bd84db82[m
+Author: zigholding <jianhanglan@163.com>
+Date:   Sun Dec 15 13:23:31 2024 +0800
+
+    update
+
+[33mcommit d7f298ce3fcc88cdc4c24b4b4cf18b2759557467[m
+Author: zigholding <jianhanglan@163.com>
+Date:   Sun Dec 15 13:22:01 2024 +0800
+
+    update
+
+[33mcommit dc420700127de85e73383589f16b7f508b5ecad8[m
+Author: zigholding <jianhanglan@163.com>
+Date:   Sun Dec 15 13:20:14 2024 +0800
+
+    update
+
+[33mcommit 5f029a5389e6f8236837ca061537a7140a386d26[m
+Author: zigholding <jianhanglan@163.com>
+Date:   Sun Dec 15 13:09:00 2024 +0800
+
+    update
+
+[33mcommit 5dc27073d1b552227994b7d76521557ba0eab974[m
+Author: zigholding <jianhanglan@163.com>
+Date:   Sun Dec 15 13:01:31 2024 +0800
+
+    添加中文
+
+[33mcommit cc8f432ef1cb39047c64f262cd0f1ccdd2076778[m
+Author: zigholding <jianhanglan@163.com>
+Date:   Sun Dec 15 12:06:58 2024 +0800
+
+    update
+
+[33mcommit 0f6e0325a311adf13097551e82ec233fff2b8269[m
+Author: zigholding <jianhanglan@163.com>
+Date:   Sun Dec 15 10:54:01 2024 +0800
+
+    update
+
+[33mcommit 5336a04ba033c59c56cd31ad9401cd11fea6f343[m
+Author: zigholding <jianhanglan@163.com>
+Date:   Sat Dec 14 13:43:10 2024 +0800
+
+    add delete_file_or_dir/mirror_folder
+
+[33mcommit fb76016bbb7a7d75cd3b94e46f733be5e70716ec[m
+Author: zigholding <jianhanglan@163.com>
+Date:   Sat Dec 14 13:17:19 2024 +0800
+
+    update
+
+[33mcommit 37a7f11607a66e3e038b10a52c6da9021da7c0d7[m
+Author: zigholding <jianhanglan@163.com>
+Date:   Sun Dec 1 20:47:42 2024 +0800
+
+    readme blank to %20
+
+[33mcommit 132e849e335cdd8ab91ccd75564a6a76fe7cebbb[m
+Author: zigholding <jianhanglan@163.com>
+Date:   Sun Dec 1 19:53:10 2024 +0800
+
+    fix \g to /
+
+[33mcommit 5cab93b3c25652090fe0aff5bc40c09befa08920[m
+Author: zigholding <jianhanglan@163.com>
+Date:   Wed May 8 20:55:35 2024 +0800
+
+    update
+
+[33mcommit e1360e6ee06710445bc33435ffa00f668eef84c5[m
+Author: zigholding <jianhanglan@163.com>
+Date:   Wed May 8 20:53:31 2024 +0800
+
+    update
+
+[33mcommit 1e0ab25b46663204b15334dd83ffd550dd544a95[m
+Author: zigholding <jianhanglan@163.com>
+Date:   Wed May 8 20:50:56 2024 +0800
+
+    Add release workflow
+
+[33mcommit 719a6be2db2e7629ae724be3e48994746e1052c8[m
+Author: zigholding <jianhanglan@163.com>
+Date:   Wed May 8 20:47:38 2024 +0800
+
+    mirror vault
+
+[33mcommit bcb0bd4a2d5e189c22185ae3aed7919fe582fcd2[m
+Author: zigholding <jianhanglan@163.com>
+Date:   Tue May 7 11:45:34 2024 +0800
+
+    ignore data.json/main.js
+
+[33mcommit 6562210dc884fc51838e53b5eec4b518316f9ae2[m
+Author: zigholding <jianhanglan@163.com>
+Date:   Tue May 7 11:40:48 2024 +0800
+
+    fix
+
+[33mcommit 71067676440e8ca34db8039f306e7c51c506661e[m
+Author: zigholding <jianhanglan@163.com>
+Date:   Sat Apr 27 15:57:17 2024 +0800
+
+    fix
+
+[33mcommit f4369bff39a3e5595306bef8d7f9c5ff467db159[m
+Author: zigholding <jianhanglan@163.com>
+Date:   Sat Apr 27 14:07:37 2024 +0800
+
+    汉化
+
+[33mcommit 4ac27c7a1dd862cf07f1934f46bb4ce3caeea3ad[m
+Author: zigholding <jianhanglan@163.com>
+Date:   Fri Apr 26 22:29:30 2024 +0800
+
+    fix
+
+[33mcommit ee8a08e5b47d3718b29a2dc37bd19c2843529e6b[m
+Author: zigholding <jianhanglan@163.com>
+Date:   Thu Apr 25 22:32:43 2024 +0800
+
+    cmd导出插件
+
+[33mcommit 452e1e4f8b613e609138d2b2f1fb749f7b27c2f8[m
+Author: zigholding <jianhanglan@163.com>
+Date:   Mon Apr 22 22:38:16 2024 +0800
+
+    替换链接
+
+[33mcommit d9a8befc3b962e36ccf78a8a277df9b76a5180a4[m
+Author: zigholding <jianhanglan@163.com>
+Date:   Mon Apr 22 22:01:24 2024 +0800
+
+    绑定命令
+
+[33mcommit 2e1928ec600aad274c82e60b2de775dba452a352[m
+Author: zigholding <jianhanglan@163.com>
+Date:   Mon Apr 22 21:27:53 2024 +0800
+
+    export_readme
