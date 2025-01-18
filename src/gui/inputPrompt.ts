@@ -70,8 +70,7 @@ export default class InputPrompt extends Modal {
 		value?: string
 	) {
 		const textComponent = new TextComponent(container);
-
-		(textComponent as any).inputEl.style.width = "100%";
+		(textComponent as any).inputEl.classList.add("input-field"); 
 		(textComponent as any)
 			.setPlaceholder(placeholder ?? "")
 			.setValue(value ?? "")
@@ -99,18 +98,15 @@ export default class InputPrompt extends Modal {
 			buttonBarContainer,
 			"Ok",
 			this.submitClickCallback
-		).setCta().buttonEl.style.marginRight = "0";
+		).setCta();
 		this.createButton(
 			buttonBarContainer,
 			"Cancel",
 			this.cancelClickCallback
 		);
 
-		buttonBarContainer.style.display = "flex";
-		buttonBarContainer.style.flexDirection = "row-reverse";
-		buttonBarContainer.style.justifyContent = "flex-start";
-		buttonBarContainer.style.marginTop = "1rem";
-		buttonBarContainer.style.gap = "0.5rem";
+		buttonBarContainer.classList.add("button-bar");
+		
 	}
 
 	private submitClickCallback = (evt: MouseEvent) => this.submit();
