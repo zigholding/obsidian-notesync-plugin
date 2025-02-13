@@ -6,7 +6,7 @@ import NoteSyncPlugin from '../main';
 import { it } from 'node:test';
 
 const cmd_export_current_note = (plugin:NoteSyncPlugin) => ({
-	id: 'cmd_export_current_note',
+	id: 'export_current_note',
 	name: plugin.strings.cmd_export_current_note,
 	callback: async () => {
 		let tfile = plugin.app.workspace.getActiveFile();
@@ -15,7 +15,7 @@ const cmd_export_current_note = (plugin:NoteSyncPlugin) => ({
 });
 
 const cmd_set_vexporter = (plugin:NoteSyncPlugin) => ({
-	id: 'cmd_set_vexporter',
+	id: 'set_vexporter',
 	name: plugin.strings.cmd_set_vexporter,
 	callback: async () => {
 		let tfile = plugin.app.workspace.getActiveFile();
@@ -41,7 +41,7 @@ const cmd_set_vexporter = (plugin:NoteSyncPlugin) => ({
 });
 
 const cmd_export_plugin = (plugin:NoteSyncPlugin) => ({
-	id: 'cmd_export_plugin',
+	id: 'export_plugin',
 	name: plugin.strings.cmd_export_plugin,
 	callback: async () => {
 		

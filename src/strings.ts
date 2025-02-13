@@ -77,7 +77,7 @@ export class Strings{
         if(this.language=='zh'){
             return '危险！同步时删除目标库中多出的文件';
         }else{
-            return 'Danger! Delet files or folders in target vault but not in current vault.';
+            return 'Danger! Delete files or folders in target vault but not in current vault.';
         }
     }
 

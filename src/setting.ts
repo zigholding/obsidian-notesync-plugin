@@ -14,7 +14,7 @@ export const DEFAULT_SETTINGS: MySettings = {
 	vaultDir:''
 }
 
-export class MySettingTab extends PluginSettingTab {
+export class NoteSyncSettingTab extends PluginSettingTab {
 	plugin: NoteSyncPlugin;
 	constructor(app: App, plugin: NoteSyncPlugin) {
 		super(app, plugin);

@@ -2,7 +2,7 @@ import {Notice, Plugin, TFile, TFolder } from 'obsidian';
 
 import { FsEditor } from 'src/fseditor';
 import { Strings } from 'src/strings';
-import {MySettings,MySettingTab,DEFAULT_SETTINGS} from 'src/setting'
+import {MySettings,NoteSyncSettingTab,DEFAULT_SETTINGS} from 'src/setting'
 
 import { addCommands } from 'src/commands';
 
@@ -35,7 +35,7 @@ export default class NoteSyncPlugin extends Plugin {
 		await this.loadSettings();
 		this.fsEditor = new FsEditor(this);
 		// This adds a settings tab so the user can configure various aspects of the plugin
-		this.addSettingTab(new MySettingTab(this.app, this));
+		this.addSettingTab(new NoteSyncSettingTab(this.app, this));
 		addCommands(this);
 
 		this.registerEvent(
@@ -83,70 +83,68 @@ export default class NoteSyncPlugin extends Plugin {
 		if(!tfile){tfile = this.app.workspace.getActiveFile();}
 		if(!tfile){return}
 
-		await this.app.fileManager.processFrontMatter(
-			tfile,
-			async(fm) =>{
-				if(!tfile){return}
-				// set output dir/设置输出目录
-				if(!dst){
-					dst = fm[this.yaml]?.Dir
-					if(!dst){
-						dst = await this.dialog_prompt('Path of LocalGitProject');
-					}
-				}
-				
-				if(!dst || !this.fsEditor.isdir(dst)){
-					new Notice(this.strings.notice_nosuchdir,3000);
-					return;
-				}
-				dst = dst.replace(/\\/g,'/');
+		let mcache = this.app.metadataCache.getFileCache(tfile);
+		let ctx = await this.app.vault.cachedRead(tfile)
 
-				// set target filename/文件名
-				let target;
-				let name = fm[this.yaml]?.Name;
-				if(name && !(name=='')){
-					target = dst+'/'+name+'.md';
-				}else{
-					target = dst+'/'+tfile.basename+'.md';
-				}
-				
-				
-				let data = await this.app.vault.cachedRead(tfile)
-				if(fm[this.yaml]?.RemoveMeta){
-					data = data.replace(
-						/---[\n(\r\n)][\s\S]*?---[\n(\r\n)]/,
-						''
-					)
-				}
-				let assets = fm[this.yaml]?.Assets
+		let fm: { [key: string]: any } = {};
+		if(mcache && mcache['frontmatter']){
+			fm = mcache['frontmatter'];
+		}
 
-				if(fm[this.yaml]?.UseGitLink && assets){
-					data = data.replace(
-						/\!\[\[(.*?)\]\]/g,
-						(match:any, name:string) => {
-							return `![${name}](${assets}/${name.replace(/ /g,'%20')})`;
-						}
-					)
-				}
-				await this.fsEditor.fs.writeFile(
-					target, data, 'utf-8', 
-					(err:Error) => {return;}
-				)
-				new Notice(`Export to ${target}`,5000)
-				if(assets){
-					let olinks = this.fsEditor.get_outlinks(tfile,false);
-					let adir = this.fsEditor.path.join(dst,assets);
-					this.fsEditor.mkdir_recursive(adir);
-					for(let f of olinks){
-						if(!(f.extension==='md')){
-							let flag = this.fsEditor.copy_tfile(f,adir+'/'+f.basename+'.'+f.extension);
-							if(flag){
-								new Notice(`Copy ${f.name}`,5000)
-							}
-						}
+		if(!dst){
+			dst = fm[this.yaml]?.Dir
+			if(!dst){
+				dst = await this.dialog_prompt('Path of LocalGitProject');
+			}
+		}
+
+		if(!dst || !this.fsEditor.isdir(dst)){
+			new Notice(this.strings.notice_nosuchdir,3000);
+			return;
+		}
+
+
+		dst = dst.replace(/\\/g,'/');
+
+		// set target filename/文件名
+		let target;
+		let name = fm[this.yaml]?.Name;
+		if(name && !(name=='')){
+			target = dst+'/'+name+'.md';
+		}else{
+			target = dst+'/'+tfile.basename+'.md';
+		}
+		
+		if(fm[this.yaml]?.RemoveMeta){
+			ctx = ctx.replace(
+				/---[\n(\r\n)][\s\S]*?---[\n(\r\n)]/,
+				''
+			)
+		}
+		let assets = fm[this.yaml]?.Assets
+
+		if(fm[this.yaml]?.UseGitLink && assets){
+			if(mcache?.frontmatterPosition?.end?.offset){
+				ctx = ctx.slice(mcache.frontmatterPosition.end.offset);
+			}
+		}
+		await this.fsEditor.fs.writeFile(
+			target, ctx, 'utf-8', 
+			(err:Error) => {return;}
+		)
+		new Notice(`Export to ${target}`,5000)
+		if(assets){
+			let olinks = this.fsEditor.get_outlinks(tfile,false);
+			let adir = this.fsEditor.path.join(dst,assets);
+			this.fsEditor.mkdir_recursive(adir);
+			for(let f of olinks){
+				if(!(f.extension==='md')){
+					let flag = this.fsEditor.copy_tfile(f,adir+'/'+f.basename+'.'+f.extension);
+					if(flag){
+						new Notice(`Copy ${f.name}`,5000)
 					}
 				}
 			}
-		)
+		}
 	}
 }

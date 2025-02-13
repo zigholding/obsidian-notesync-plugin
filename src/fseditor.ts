@@ -1,6 +1,7 @@
 
 import { App, Editor, MarkdownView, Modal, Notice, Plugin, PluginSettingTab, Setting, TFile, TFolder } from 'obsidian';
 import NoteSyncPlugin from "../main";
+import { on } from 'node:events';
 export class FsEditor{
     fs;
     app:App;
@@ -26,33 +27,18 @@ export class FsEditor{
 			if(tfile){
 				return tfile;
 			}
-
-			let tfiles = (this.app.metadataCache as any).uniqueFileLookup.get(path.toLowerCase());
-			if(!tfiles){
-				tfiles = (this.app.metadataCache as any).uniqueFileLookup.get(path.toLowerCase()+'.md');
-				if(!tfiles){
-					return null;
-				}else{
-					path = path+'.md'
-				}
-			}
-
-			let ctfiles = tfiles.filter((x:TFile)=>x.name==path)
-			if(ctfiles.length>0){
-				if(only_first){
-					return ctfiles[0]
-				}else{
-					return ctfiles
-				}
-			}
-
-			if(tfiles.length>0){
-				if(only_first){
-					return tfiles[0]
-				}else{
-					return tfiles
-				}
-			}
+            
+            if(only_first){
+                let tfile = (this.app.metadataCache as any).getFirstLinkpathDest(path.split('/').last());
+                if(tfile){
+                    return tfile;
+                }
+            }else{
+                let tfiles = (this.app.metadataCache as any).getLinkpathDest(path.split('/').last());
+                if(tfiles && tfiles.length>0){
+                    return tfiles;
+                }
+            }
 			return null;
 		}catch{
 			// console.log(path)
