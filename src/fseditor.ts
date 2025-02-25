@@ -41,7 +41,6 @@ export class FsEditor{
             }
 			return null;
 		}catch{
-			// console.log(path)
 			return null
 		}
 	}
