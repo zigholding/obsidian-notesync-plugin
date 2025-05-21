@@ -84,7 +84,7 @@ export default class NoteSyncPlugin extends Plugin {
 		if(!tfile){return}
 
 		let mcache = this.app.metadataCache.getFileCache(tfile);
-		let ctx = await this.app.vault.cachedRead(tfile)
+		let ctx = await this.app.vault.read(tfile);
 
 		let fm: { [key: string]: any } = {};
 		if(mcache && mcache['frontmatter']){
