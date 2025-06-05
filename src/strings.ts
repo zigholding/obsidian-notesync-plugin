@@ -91,7 +91,7 @@ export class Strings{
 
     get setting_git_repo(){
         if(this.language=='zh'){
-            return 'Git 仓库库';
+            return 'Git 仓库';
         }else{
             return 'Git repository';
         }
