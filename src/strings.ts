@@ -34,6 +34,14 @@ export class Strings{
         }
     }
 
+    get cmd_download_git_repo(){
+        if(this.language=='zh'){
+            return '下载 Git 仓库文件'
+        }else{
+            return 'Download git repo';
+        }
+    }
+
     get prompt_path_of_folder(){
         if(this.language=='zh'){
             return '输入文件夹路径'
@@ -78,6 +86,14 @@ export class Strings{
             return '危险！同步时删除目标库中多出的文件';
         }else{
             return 'Danger! Delete files or folders in target vault but not in current vault.';
+        }
+    }
+
+    get setting_git_repo(){
+        if(this.language=='zh'){
+            return 'Git 仓库库';
+        }else{
+            return 'Git repository';
         }
     }
 

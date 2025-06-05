@@ -109,6 +109,108 @@ const cmd_export_plugin = (plugin:NoteSyncPlugin) => ({
 	}
 });
 
+const cmd_download_git_repo = (plugin:NoteSyncPlugin) => ({
+	id: 'cmd_download_git_repo',
+	name: plugin.strings.cmd_download_git_repo,
+	callback: async () => {
+		let repos = plugin.settings.git_repo.split('\n')
+		let repo = await plugin.dialog_suggest(repos,repos);
+		if(!repo){return}
+
+		let match = repo.match(/^https?:\/\/(.*)\.com\/([^/]*)\/([^/]*)\/tree\/([^/]*)\/?(.*)$/);
+		if(!match){return}
+
+		let SOURCE = match[1]; // gitee
+		let repoOwner = match[2]; // 开发者
+		let repoName = match[3]; // 项目名称
+		let branch = match[4]; // 分支名称
+		let path = match[5];  // 初始路径
+		
+		async function list_files_of_path(repoOwner:string, repoName:string, path:string, branch = 'master') {
+			let url;
+			if(SOURCE=='github'){
+				url = `https://api.github.com/repos/${repoOwner}/${repoName}/contents/${path}?ref=${branch}`;
+			}else{
+				url = `https://gitee.com/api/v5/repos/${repoOwner}/${repoName}/contents/${path}?ref=${branch}`
+			}
+			let req = await (window as any).requestUrl(url)
+			req = JSON.parse(req.text)
+			if(!Array.isArray(req)){
+				req = [req]
+			}
+			return req
+		}
+
+		async function download_file(url:string,folder_path:string,file_name:string){
+			let req = await (window as any).requestUrl(url)
+			// req = JSON.parse(req.text)
+			// let ctx = atob(req.content)
+			let ctx = req.text
+			let tfile_path = `${folder_path}/${file_name}`
+			// console.log(ctx)
+			if(folder_path.startsWith('.')){
+				let flag = (plugin.app.vault as any).exists(folder_path);
+				if(!flag){
+					await plugin.app.vault.createFolder(folder_path)
+				}
+				flag = (plugin.app.vault as any).exists(tfile_path);
+				if(flag){
+					await (plugin.app.vault as any).adapter.remove(tfile_path)
+					await plugin.app.vault.create(tfile_path,ctx)
+					new Notice(`更新：${tfile_path}`,5000)
+				}else{
+					await plugin.app.vault.create(tfile_path,ctx)
+					new Notice(`下载：${tfile_path}`,5000)
+				}
+			}else{
+				let folder = plugin.app.vault.getFolderByPath(folder_path)
+				if(!folder){
+					folder = await plugin.app.vault.createFolder(folder_path)
+				}
+				
+				let tfile = plugin.app.vault.getFileByPath(tfile_path)
+				if(!tfile){
+					await plugin.app.vault.create(tfile_path,ctx);
+					new Notice(`下载：${tfile_path}`,5000)
+				}else{
+					await plugin.app.vault.modify(tfile,ctx)
+					new Notice(`更新：${tfile.path}`,5000)
+				}
+			}
+			
+		}
+
+		async function download_file_of_dir(repoOwner:string, repoName:string, path:string, branch:string){
+			let items = await list_files_of_path(repoOwner, repoName, path, branch)
+			let nc = this.app.plugins.getPlugin('note-chain');
+			let item = await nc.dialog_suggest(
+				items.map((x:any)=>(x.type=='file'?'📃':'📁')+x.path),
+				items,'',true
+			);
+			if(!item){return}
+			if(typeof(item)=='string' && item=='all'){
+				for(let item of items){
+					if(item.type=='file'){
+						let file_name = item.path.split('/').last();
+						let folder_path = item.path.slice(0,item.path.length-file_name.length-1);
+						await download_file(item.download_url,folder_path,file_name)
+					}
+				}
+			}else if(item.type=='file'){
+				let file_name = item.path.split('/').last();
+				let folder_path = item.path.slice(0,item.path.length-file_name.length-1);
+				await download_file(item.download_url,folder_path,file_name)
+			}else if(item.type=='dir'){
+				await download_file_of_dir(repoOwner, repoName, item.path, branch)
+			}
+		}
+
+		download_file_of_dir(repoOwner, repoName, path, branch)
+
+	}
+});
+
+
 const commandBuilders:Array<Function> = [
     
 ];
@@ -116,7 +218,8 @@ const commandBuilders:Array<Function> = [
 const commandBuildersDesktop:Array<Function> = [
 	cmd_export_current_note,
 	cmd_set_vexporter,
-	cmd_export_plugin
+	cmd_export_plugin,
+	cmd_download_git_repo
 ];
 
 export function addCommands(plugin:NoteSyncPlugin) {

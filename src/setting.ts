@@ -7,11 +7,13 @@ import NoteSyncPlugin from '../main';
 export interface MySettings {
 	strict_mode: boolean;
 	vaultDir:string;
+	git_repo:string;
 }
 
 export const DEFAULT_SETTINGS: MySettings = {
 	strict_mode:false,
-	vaultDir:''
+	vaultDir: '',
+	git_repo: 'https://github.com/zigholding/ObsidianZ/tree/master\nhttps://gitee.com/zigholding/ObsidianZ/tree/master'
 }
 
 export class NoteSyncSettingTab extends PluginSettingTab {
@@ -60,5 +62,14 @@ export class NoteSyncSettingTab extends PluginSettingTab {
 			this.plugin.strings.setting_strict_mode_desc,
 			'strict_mode'
 		);
+
+		new Setting(containerEl)
+				.setName(this.plugin.strings.setting_git_repo)
+				.addTextArea(text => text
+					.setValue(this.plugin.settings.git_repo)
+					.onChange(async (value) => {
+						this.plugin.settings.git_repo = value;
+						await this.plugin.saveSettings();
+					}));
 	}
 }
