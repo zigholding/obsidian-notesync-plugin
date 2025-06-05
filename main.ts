@@ -116,17 +116,19 @@ export default class NoteSyncPlugin extends Plugin {
 		}
 		
 		if(fm[this.yaml]?.RemoveMeta){
-			ctx = ctx.replace(
-				/---[\n(\r\n)][\s\S]*?---[\n(\r\n)]/,
-				''
-			)
-		}
-		let assets = fm[this.yaml]?.Assets
-
-		if(fm[this.yaml]?.UseGitLink && assets){
 			if(mcache?.frontmatterPosition?.end?.offset){
 				ctx = ctx.slice(mcache.frontmatterPosition.end.offset);
 			}
+		}
+		
+		let assets = fm[this.yaml]?.Assets
+
+		if(fm[this.yaml]?.UseGitLink && assets){
+			ctx = ctx.replace(
+				/\!\[\[(.*?)\]\]/g, 
+				(match, filename) => {
+			  	return `![](./${assets}/${filename})`;
+			})
 		}
 		await this.fsEditor.fs.writeFile(
 			target, ctx, 'utf-8', 
