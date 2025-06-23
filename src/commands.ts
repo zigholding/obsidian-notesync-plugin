@@ -102,7 +102,7 @@ const cmd_export_plugin = (plugin:NoteSyncPlugin) => ({
 				let dst = `${target}/${item}`;
 				let flag = plugin.fsEditor.copy_file(src,dst,'overwrite');
 				if(flag){
-					new Notice(`Copy ${item} to ${target}`,5000)
+					console.log(`Copy ${item} to ${target}`,5000)
 				}
 			}
 		}

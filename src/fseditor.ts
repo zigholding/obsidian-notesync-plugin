@@ -94,8 +94,11 @@ export class FsEditor{
 	}
 
 
-    abspath(tfile:TFile|TFolder){
-		if(tfile){
+    abspath(tfile:TFile|TFolder|string){
+        if(typeof tfile == 'string'){
+            return (this.root+'/'+tfile).replace(/\\/g,'/');
+        }
+		else if(tfile){
 			return (this.root+'/'+tfile.path).replace(/\\/g,'/');
 		}else{
 			return null;
@@ -179,17 +182,20 @@ export class FsEditor{
             if(mode==='overwrite'){
                 fs.unlinkSync(dst);
                 fs.copyFileSync(src,dst);
+                console.log('Overwrite: '+src+' to '+dst);
                 return true;
             }else if(mode==='mtime'){
                 // dst 更新时间小于 src
                 if(fs.statSync(dst).mtimeMs<fs.statSync(src).mtimeMs){
                     fs.unlinkSync(dst);
                     fs.copyFileSync(src,dst);
+                    console.log('Update: '+src+' to '+dst);
                     return true;
                 }
             }
         }else{
             fs.copyFileSync(src,dst);
+            console.log('Copy: '+src+' to '+dst);
             return true;
         }
         return false;
@@ -243,15 +249,28 @@ export class FsEditor{
 		}
     }
 
-    delete_file_or_dir(path:string){
+    async delete_file_or_dir(path:string){
         if(this.isfile(path)){
-            this.fs.unlinkSync(path)
+            if (await this.plugin.dialog_suggest(['❌','✔️'],[false,true],path)){
+                console.log(`Delete file: ${path}`)
+                this.fs.unlinkSync(path)
+            }
+            
         }else if(this.isdir(path)){
             let items = this.list_dir(path,true)
-            for(let item of items){
-                this.delete_file_or_dir(item)
+            if (await this.plugin.dialog_suggest(['❌','✔️'],[false,true],path)){
+                console.log(`Delete folder: ${path}`)
+                this.fs.rmdirSync(path)
+            }else{
+                return;
             }
-            this.fs.rmdirSync(path)
+            for(let item of items){
+                if (await this.plugin.dialog_suggest(['❌','✔️'],[false,true],item)){
+                    console.log(`Delete file: ${path}`)
+                    this.delete_file_or_dir(item)
+                }   
+            }
+            
         }
     }
 
@@ -264,7 +283,7 @@ export class FsEditor{
             let asrc = src+'/'+item
             if(this.isfile(adst)){
                 if(!this.isfile(asrc)){
-                    this.fs.unlinkSync(adst)
+                    this.delete_file_or_dir(adst);
                 }
             }else if(this.isdir(adst)){
                 if(!this.isdir(asrc)){

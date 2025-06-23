@@ -59,7 +59,7 @@ export default class NoteSyncPlugin extends Plugin {
 							this.fsEditor.sync_tfile(file,dst,'mtime',true,false);
 
 						}else if(file instanceof TFolder){
-							this.fsEditor.sync_tfolder(file,dst,'mtime',true,false);
+							this.fsEditor.sync_tfolder(file,dst,'mtime',true,false,this.settings.strict_mode);
 						}
 					});
 				});
@@ -124,10 +124,11 @@ export default class NoteSyncPlugin extends Plugin {
 		let assets = fm[this.yaml]?.Assets
 
 		if(fm[this.yaml]?.UseGitLink && assets){
+			
 			ctx = ctx.replace(
 				/\!\[\[(.*?)\]\]/g, 
 				(match, filename) => {
-			  	return `![](./${assets}/${filename})`;
+			  		return `![](./${assets}/${filename.replace(/ /g,'%20')})`;
 			})
 		}
 		await this.fsEditor.fs.writeFile(
