@@ -331,7 +331,7 @@ export class Wxmp {
         if (!tfile) { return }
         let ext = tfile.extension.toLowerCase()
         if (!img_ext.contains(ext)) { return }
-        let data = await app.vault.readBinary(tfile)
+        let data = await this.app.vault.readBinary(tfile)
         let text = this.arrayBufferToBase64(data);
 
         let bs64 = `data:image/png;base64,${text}`
