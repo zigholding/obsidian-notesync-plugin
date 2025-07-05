@@ -2,5 +2,5 @@
   "strict_mode": false,
   "vaultDir": "D:\\iLanix\\Obsidian\nD:\\github\\ObsidianZY",
   "git_repo": "https://github.com/zigholding/ObsidianZ/tree/master\nhttps://gitee.com/zigholding/ObsidianZ/tree/master",
-  "wxmp_config": ""
+  "wxmp_config": "h1: ob 公众号标题 h1 样式\nh2: ob 公众号标题 h2 样式\nh3: ob 公众号标题 hx 样式\np code: ob 公众号行内代码样式\nli code: ob 公众号行内代码样式"
 }

@@ -21,6 +21,9 @@ export class Wxmp {
         for(let line of this.plugin.settings.wxmp_config.split('\n')){
             let [key, value] = line.split(':');
             if(!key || !value){continue}
+            key = key.trim();
+            value = value.trim();
+            if(!key || !value){continue}
             config[key] = value;
         }
         if(!config['h1']){
@@ -156,7 +159,6 @@ export class Wxmp {
                 // 模板渲染，传入content
                 let rendered = await this.plugin.easyapi.tpl.parse_templater(tpl, true, content);
                 if (rendered.length > 0) {
-                    // 只替换内容，不替换标签和属性
                     item.innerHTML = rendered[0];
                 }
             }
