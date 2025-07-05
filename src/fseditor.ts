@@ -330,4 +330,25 @@ export class FsEditor{
 		  }
         );
     }
+
+    list_dir_recursive(path:string,with_folder=false):Array<string>{
+        if(!this.isdir(path)){return []}
+        let res = []
+        let items = this.plugin.fsEditor.list_dir(path,true)
+        for(let item of items){
+            if(this.isfile(item)){
+                res.push(item)
+            }else if(this.isdir(item)){
+                if(with_folder){
+                    res.push()
+                }
+                let sitems = this.list_dir_recursive(item,with_folder);
+                for(let i of sitems){
+                    res.push(i)
+                }
+            }
+        }
+        return res;
+    }
+
 }

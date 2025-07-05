@@ -1,6 +1,7 @@
 import {Notice, Plugin, TFile, TFolder } from 'obsidian';
 
 import { FsEditor } from 'src/fseditor';
+import { Wxmp } from 'src/wxmp';
 import { Strings } from 'src/strings';
 import {MySettings,NoteSyncSettingTab,DEFAULT_SETTINGS} from 'src/setting'
 
@@ -8,14 +9,17 @@ import { addCommands } from 'src/commands';
 
 import {dialog_suggest} from 'src/gui/inputSuggester'
 import {dialog_prompt} from 'src/gui/inputPrompt'
+import {EasyAPI} from 'src/easyapi/easyapi'
 
 export default class NoteSyncPlugin extends Plugin {
 	strings : Strings;
 	settings: MySettings;
 	fsEditor : FsEditor;
 	yaml: string;
-	dialog_suggest: Function
-	dialog_prompt: Function
+	dialog_suggest: Function;
+	dialog_prompt: Function;
+	easyapi: EasyAPI;
+	wxmp: Wxmp;
 
 
 	async onload() {
@@ -31,9 +35,12 @@ export default class NoteSyncPlugin extends Plugin {
 	async _onload_() {
 		this.yaml = 'note-sync'
 		this.strings = new Strings();
+		this.easyapi = new EasyAPI(this.app);
+		
 
 		await this.loadSettings();
 		this.fsEditor = new FsEditor(this);
+		this.wxmp = new Wxmp(this);
 		// This adds a settings tab so the user can configure various aspects of the plugin
 		this.addSettingTab(new NoteSyncSettingTab(this.app, this));
 		addCommands(this);

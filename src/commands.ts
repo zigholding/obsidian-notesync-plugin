@@ -8,6 +8,7 @@ import { it } from 'node:test';
 const cmd_export_current_note = (plugin:NoteSyncPlugin) => ({
 	id: 'export_current_note',
 	name: plugin.strings.cmd_export_current_note,
+	icon:'file-export',
 	callback: async () => {
 		let tfile = plugin.app.workspace.getActiveFile();
 		await plugin.export_readme(tfile,null);
@@ -17,6 +18,7 @@ const cmd_export_current_note = (plugin:NoteSyncPlugin) => ({
 const cmd_set_vexporter = (plugin:NoteSyncPlugin) => ({
 	id: 'set_vexporter',
 	name: plugin.strings.cmd_set_vexporter,
+	icon:'settings',
 	callback: async () => {
 		let tfile = plugin.app.workspace.getActiveFile();
 		if(!tfile){return}
@@ -43,6 +45,7 @@ const cmd_set_vexporter = (plugin:NoteSyncPlugin) => ({
 const cmd_export_plugin = (plugin:NoteSyncPlugin) => ({
 	id: 'export_plugin',
 	name: plugin.strings.cmd_export_plugin,
+	icon:'arrow-right-from-line',
 	callback: async () => {
 		
 		let plugins = Object.keys((plugin.app as any).plugins.plugins);
@@ -112,6 +115,7 @@ const cmd_export_plugin = (plugin:NoteSyncPlugin) => ({
 const cmd_download_git_repo = (plugin:NoteSyncPlugin) => ({
 	id: 'cmd_download_git_repo',
 	name: plugin.strings.cmd_download_git_repo,
+	icon:'cloud-download',
 	callback: async () => {
 		let repos = plugin.settings.git_repo.split('\n')
 		let repo = await plugin.dialog_suggest(repos,repos);
@@ -210,8 +214,24 @@ const cmd_download_git_repo = (plugin:NoteSyncPlugin) => ({
 	}
 });
 
+const cmd_export_wxmp = (plugin:NoteSyncPlugin) => ({
+	id: 'cmd_export_wxmp',
+	name: plugin.strings.cmd_export_wxmp,
+	icon:'aperture',
+	hotkeys: [{ modifiers: ['Alt', 'Shift'], key: 'P' }],
+	callback: async () => {
+		if(!plugin.easyapi.cfile){return}
+		let ctx = await plugin.app.vault.read(plugin.easyapi.cfile);
+		let html = plugin.wxmp.marked.marked(ctx);
+		let rhtml = await plugin.wxmp.html_to_wxmp(html);
+		plugin.wxmp.copy_as_html(rhtml);
+		new Notice(`${plugin.strings.cmd_export_wxmp}: OK`,5000)
+	}
+});
+
 
 const commandBuilders:Array<Function> = [
+	cmd_export_wxmp,
     
 ];
 
@@ -219,7 +239,8 @@ const commandBuildersDesktop:Array<Function> = [
 	cmd_export_current_note,
 	cmd_set_vexporter,
 	cmd_export_plugin,
-	cmd_download_git_repo
+	cmd_download_git_repo,
+	cmd_export_wxmp
 ];
 
 export function addCommands(plugin:NoteSyncPlugin) {

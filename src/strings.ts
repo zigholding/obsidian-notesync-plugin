@@ -42,6 +42,14 @@ export class Strings{
         }
     }
 
+    get cmd_export_wxmp(){
+        if(this.language=='zh'){
+            return '导出微信公众号';
+        }else{
+            return 'Export wxmp';
+        }
+    }
+
     get prompt_path_of_folder(){
         if(this.language=='zh'){
             return '输入文件夹路径'
@@ -96,6 +104,15 @@ export class Strings{
             return 'Git repository';
         }
     }
+
+    get setting_wxmp_config(){
+        if(this.language=='zh'){
+            return '微信公众号样式配置';
+        }else{
+            return 'Style config for wxmp';
+        }
+    }
+    
 
     get item_copy_data_json(){
         if(this.language=='zh'){

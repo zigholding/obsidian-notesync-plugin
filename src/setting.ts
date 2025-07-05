@@ -8,12 +8,20 @@ export interface MySettings {
 	strict_mode: boolean;
 	vaultDir:string;
 	git_repo:string;
+	wxmp_config:string;
 }
 
 export const DEFAULT_SETTINGS: MySettings = {
 	strict_mode:false,
 	vaultDir: '',
-	git_repo: 'https://github.com/zigholding/ObsidianZ/tree/master\nhttps://gitee.com/zigholding/ObsidianZ/tree/master'
+	git_repo: 'https://github.com/zigholding/ObsidianZ/tree/master\nhttps://gitee.com/zigholding/ObsidianZ/tree/master',
+	wxmp_config: `
+h1: ob 公众号标题 h1 样式
+h2: ob 公众号标题 h2 样式
+h3: ob 公众号标题 hx 样式
+p code: ob 公众号行内代码样式
+li code: ob 公众号行内代码样式
+`.trim()
 }
 
 export class NoteSyncSettingTab extends PluginSettingTab {
@@ -71,5 +79,14 @@ export class NoteSyncSettingTab extends PluginSettingTab {
 						this.plugin.settings.git_repo = value;
 						await this.plugin.saveSettings();
 					}));
+		
+		new Setting(containerEl)
+			.setName(this.plugin.strings.setting_wxmp_config)
+			.addTextArea(text => text
+				.setValue(this.plugin.settings.wxmp_config)
+				.onChange(async (value) => {
+					this.plugin.settings.wxmp_config = value;
+					await this.plugin.saveSettings();
+				}));
 	}
 }
