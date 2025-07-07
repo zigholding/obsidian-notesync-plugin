@@ -224,22 +224,13 @@ const cmd_export_wxmp = (plugin:NoteSyncPlugin) => ({
 		let htmls = [];
 		let ctx = plugin.easyapi.ceditor.getSelection();
 		if(!ctx){
-			ctx = await plugin.app.vault.read(plugin.easyapi.cfile);
-			for(let section of plugin.easyapi.cmeta?.sections || []){
-				if(section.type=='yaml'){
-					continue
-				}
-				let sec = plugin.easyapi.editor.slice_by_position(ctx,section.position);
-				let html = plugin.wxmp.marked.marked(sec);
-				let rhtml = await plugin.wxmp.html_to_wxmp(html);
-				htmls.push(rhtml);
-			}
+			plugin.wxmp.tfile_to_wxmp(plugin.easyapi.cfile);
 		}else{
 			let html = plugin.wxmp.marked.marked(ctx);
 			let rhtml = await plugin.wxmp.html_to_wxmp(html);
 			htmls.push(rhtml);
+			plugin.wxmp.copy_as_html(htmls);
 		}
-		plugin.wxmp.copy_as_html(htmls);
 		new Notice(`${plugin.strings.cmd_export_wxmp}: OK`,5000)
 	}
 });

@@ -16,30 +16,37 @@ export class Wxmp {
         this.hljs = require('highlight.js');
     }
 
-    get ctx_map(){
-        let config:{[key:string]:any} = {};
-        for(let line of this.plugin.settings.wxmp_config.split('\n')){
-            let [key, value] = line.split(':');
-            if(!key || !value){continue}
-            key = key.trim();
-            value = value.trim();
-            if(!key || !value){continue}
-            config[key] = value;
+    get ctx_map() {
+        let msg = this.plugin.settings.wxmp_config.trim();
+        if(msg.trim()==''){
+            return {};
+        }
+        let config = this.plugin.easyapi.editor.yamljs.load(msg);
+        if(!config){
+            return {};
         }
         if(!config['h1']){
             config['h1'] = this.format_wxmp_h1;
         }
-        if(!config['h2']){
+
+        if (!config['h1']) {
+            config['h1'] = this.format_wxmp_h1;
+        }
+        if (!config['h2']) {
             config['h2'] = this.format_wxmp_h2;
         }
-        if(!config['h3']){
+        if (!config['h3']) {
             config['h3'] = this.format_wxmp_h3;
         }
-        if(!config['p code']){
+        if (!config['p code']) {
             config['p code'] = this.format_wxmp_p_code;
         }
-        if(!config['li code']){
+        if (!config['li code']) {
             config['li code'] = this.format_wxmp_li_code;
+        }
+
+        if (!config['section@cards-album']) {
+            config['section@cards-album'] = this.format_code_block_cards_album.bind(this);
         }
         return config;
     }
@@ -64,7 +71,7 @@ export class Wxmp {
         }
     }
 
-    async replace_regx_with_tpl(rhtml:string, regx:RegExp, tpl:string) {
+    async replace_regx_with_tpl(rhtml: string, regx: RegExp, tpl: string) {
         let matches = [...rhtml.matchAll(regx)];
 
         let replacements = await Promise.all(
@@ -82,13 +89,13 @@ export class Wxmp {
         return rhtml;
     }
 
-    convertVaultImageLinksToImgTag(htmlString:string) {
+    convertVaultImageLinksToImgTag(htmlString: string) {
         return htmlString.replace(/!\[\[([^\]]+?)\]\]/g, (match, filename) => {
             return `<img src="${filename.trim()}">`;
         });
     }
 
-    async convertImageTagsToBase64(htmlString:string) {
+    async convertImageTagsToBase64(htmlString: string) {
         const parser = new DOMParser();
         const doc = parser.parseFromString(htmlString, 'text/html');
 
@@ -114,8 +121,57 @@ export class Wxmp {
         return new XMLSerializer().serializeToString(doc.body);
     }
 
+    async tfile_to_wxmp(tfile: TFile) {
+        let htmls = [];
+        let ctx = await this.app.vault.read(tfile);
+        for (let section of this.app.metadataCache.getFileCache(tfile)?.sections || []) {
+            if (section.type == 'yaml') {
+                continue
+            }
+            let sec = this.plugin.easyapi.editor.slice_by_position(ctx, section.position);
 
-    async html_to_wxmp(html:string) {
+            let rhtml:any = null;
+
+            for(let k in this.ctx_map){
+                if(k.startsWith('section@')){
+                    let tpl = this.ctx_map[k];
+                    if (typeof tpl == 'function') {
+                        rhtml = await tpl(section,sec);
+                    } else {
+                        let rendered = await this.plugin.easyapi.tpl.parse_templater(
+                            tpl, true,{section:section,sec:sec},[0]
+                        );
+                        if (rendered.length > 0 && rendered[0].trim() != '') {
+                            rhtml = rendered[0];
+                        }
+                    }
+                    if(rhtml){
+                        break;
+                    }
+                }
+            }
+
+            if(!rhtml){
+                if(section.type == 'code'){
+                    let items = sec.split('\n');
+                    items[0] = items[0].slice(0,3)+'js'+'\n//'+items[0].slice(3);
+                    sec = items.join('\n');
+                }
+                let html = this.marked.marked(sec);
+                rhtml = await this.html_to_wxmp(html);
+                htmls.push(rhtml);
+            }else{
+                if(Array.isArray(rhtml)){
+                    htmls.push(...rhtml);
+                }else{
+                    htmls.push(rhtml);
+                }
+            }
+        }
+        this.plugin.wxmp.copy_as_html(htmls);
+    }
+
+    async html_to_wxmp(html: string) {
         let rhtml;
 
         // 替换图片
@@ -129,6 +185,7 @@ export class Wxmp {
 
         // 替换标题
         for (let k in this.ctx_map) {
+            if(k.contains('@')){continue;}
             rhtml = await this.set_tag_with_tpl(rhtml, k, this.ctx_map[k]);
         }
 
@@ -142,7 +199,7 @@ export class Wxmp {
         return rhtml
     }
 
-    async set_tag_with_tpl(htmlString:string, selector:string, tpl:string|Function) {
+    async set_tag_with_tpl(htmlString: string, selector: string, tpl: string | Function) {
         let parser = new DOMParser();
         let doc = parser.parseFromString(htmlString, 'text/html');
         let items = doc.querySelectorAll(selector);
@@ -150,12 +207,12 @@ export class Wxmp {
         await Promise.all(Array.from(items).map(async (item) => {
             let content = item.textContent;
 
-            if(typeof tpl == 'function'){
+            if (typeof tpl == 'function') {
                 let rendered = tpl(content);
-                if(rendered){
+                if (rendered) {
                     item.innerHTML = rendered;
                 }
-            }else{
+            } else {
                 // 模板渲染，传入content
                 let rendered = await this.plugin.easyapi.tpl.parse_templater(tpl, true, content);
                 if (rendered.length > 0) {
@@ -171,7 +228,7 @@ export class Wxmp {
     }
 
 
-    setLastLiMargin(htmlString:string) {
+    setLastLiMargin(htmlString: string) {
         let parser = new DOMParser();
         let doc = parser.parseFromString(htmlString, 'text/html');
 
@@ -197,7 +254,7 @@ export class Wxmp {
     }
 
 
-    setParagraphSpacingBeforeList(htmlString:string) {
+    setParagraphSpacingBeforeList(htmlString: string) {
         // 创建一个新的DOM解析器
         let parser = new DOMParser();
         // 将HTML字符串解析为文档对象
@@ -222,7 +279,7 @@ export class Wxmp {
         return modifiedHtmlString;
     }
 
-    html_replace_url(html:string) {
+    html_replace_url(html: string) {
         let regx = /<a[^>]*class="external-link"[^>]*href="(.*?)"[^>]*?>([\s\S]*?)<\/a>/g
         let rhtml = html.replace(regx, (m, href, text) => {
 
@@ -245,7 +302,7 @@ export class Wxmp {
     }
 
 
-    html_replace_code(html:string) {
+    html_replace_code(html: string) {
         const parser = new DOMParser();
         const doc = parser.parseFromString(html, 'text/html');
         const codeBlocks = Array.from(doc.querySelectorAll('pre > code[class^="language-"]'));
@@ -359,7 +416,7 @@ export class Wxmp {
         await navigator.clipboard.write([data]);
     }
 
-    formatWeChatImageLink(inputHtml:string) {
+    formatWeChatImageLink(inputHtml: string) {
         // 创建一个临时的 div 元素来解析 HTML
         let tempDiv = document.createElement('div');
         tempDiv.innerHTML = inputHtml;
@@ -397,36 +454,119 @@ export class Wxmp {
         return tempDiv.innerHTML;
     }
 
-    format_wxmp_h1(title:string){
+    format_wxmp_h1(title: string) {
         let css = `
         <h1 style="box-sizing: border-box; border-width: 0px 0px 2px; border-style: solid; border-bottom-color: rgb(0, 152, 116); font-size: 19.6px; font-weight: bold; margin: 2em auto 1em; text-align: center; line-height: 1.75; font-family: Menlo, Monaco, &quot;Courier New&quot;, monospace; display: table; padding: 0.5em 1em; color: rgb(63, 63, 63); text-shadow: rgba(0, 0, 0, 0.1) 2px 2px 4px; visibility: visible;"><span leaf="" style="visibility: visible;">${title}</span></h1>
         `.trim()
         return css;
     }
 
-    format_wxmp_h2(title:string){
+    format_wxmp_h2(title: string) {
         let css = `
         <h2 style="box-sizing: border-box;border-width: 0px;border-style: solid;border-color: hsl(var(--border));font-size: 18.2px;font-weight: bold;margin: 4em auto 2em;text-align: center;line-height: 1.75;font-family: Menlo, Monaco, &quot;Courier New&quot;, monospace;display: table;padding: 0.3em 1em;color: rgb(255, 255, 255);background: rgb(0, 152, 116);border-radius: 8px;box-shadow: rgba(0, 0, 0, 0.1) 0px 4px 6px;"><span leaf="">${title}</span></h2>
         `.trim()
         return css;
     }
 
-    format_wxmp_h3(title:string){
+    format_wxmp_h3(title: string) {
         let css = `
         <h3 style="box-sizing: border-box;border-width: 0px 0px 1px 4px;border-style: solid solid dashed;border-bottom-color: rgb(0, 152, 116);border-left-color: rgb(0, 152, 116);font-size: 16.8px;font-weight: bold;margin: 2em 8px 0.75em 0px;text-align: left;line-height: 1.2;font-family: Menlo, Monaco, &quot;Courier New&quot;, monospace;padding-left: 12px;color: rgb(63, 63, 63);"><span leaf="">${title}</span></h3>
         `.trim()
         return css;
     }
 
-    format_wxmp_p_code(code:string){
+    format_wxmp_p_code(code: string) {
         let css = `
         <code style="box-sizing: border-box; border-width: 0px; border-style: solid; border-color: hsl(var(--border)); font-family: -apple-system-font, BlinkMacSystemFont, &quot;Helvetica Neue&quot;, &quot;PingFang SC&quot;, &quot;Hiragino Sans GB&quot;, &quot;Microsoft YaHei UI&quot;, &quot;Microsoft YaHei&quot;, Arial, sans-serif; font-feature-settings: normal; font-variation-settings: normal; font-size: 12.6px; text-align: left; line-height: 1.75; color: rgb(221, 17, 68); background: rgba(27, 31, 35, 0.05); padding: 3px 5px; border-radius: 4px; visibility: visible;"><span leaf="" style="visibility: visible;">${code}</span></code>`.trim()
         return css;
     }
 
-    format_wxmp_li_code(code:string){
+    format_wxmp_li_code(code: string) {
         let css = `
         <code style="box-sizing: border-box; border-width: 0px; border-style: solid; border-color: hsl(var(--border)); font-family: -apple-system-font, BlinkMacSystemFont, &quot;Helvetica Neue&quot;, &quot;PingFang SC&quot;, &quot;Hiragino Sans GB&quot;, &quot;Microsoft YaHei UI&quot;, &quot;Microsoft YaHei&quot;, Arial, sans-serif; font-feature-settings: normal; font-variation-settings: normal; font-size: 12.6px; text-align: left; line-height: 1.75; color: rgb(221, 17, 68); background: rgba(27, 31, 35, 0.05); padding: 3px 5px; border-radius: 4px; visibility: visible;"><span leaf="" style="visibility: visible;">${code}</span></code>`.trim()
         return css;
     }
+
+    is_code_balck(section:any,sec:string,lang:string){
+        return section.type == 'code' && sec.trim().slice(3).startsWith(lang)
+    }
+
+    async format_code_block_cards_album(section: any, sec:string) {
+        if(section.type != 'code' || !sec.trim().slice(3).startsWith('cards-album')){
+            return null;
+        }
+        let items = [];
+        for(let ctx of sec.split('images:')[1].split(/\n\s+/)){
+            if(ctx.trim() == ''){
+                continue;
+            }
+            let img = await this.images2html(ctx);
+            if(img){
+                items.push(img);;
+            }
+        }
+        if(items.length == 0){
+            return null;
+        }
+        return items;
+    }
+
+
+    generateSideBySideImages(base64Images: string[]) {
+        const sectionStart = `<section style="color: rgb(0, 0, 0);font-family: 'Microsoft YaHei';font-size: medium;font-style: normal;font-variant-ligatures: normal;font-variant-caps: normal;font-weight: 400;letter-spacing: normal;orphans: 2;text-align: start;text-indent: 0px;text-transform: none;widows: 2;word-spacing: 0px;-webkit-text-stroke-width: 0px;white-space: normal;text-decoration-thickness: initial;text-decoration-style: initial;text-decoration-color: initial;margin-bottom: 18px;display: flex;justify-content: space-between;flex-shrink: 0;">`;
+
+        const sectionEnd = `</section>`;
+
+        const imageSections = base64Images.map((base64, index) => {
+            return `
+            <section key="${index}" style="font-family: 'PingFang SC', system-ui, -apple-system, BlinkMacSystemFont, 'Helvetica Neue', 'Hiragino Sans GB', 'Microsoft YaHei UI', 'Microsoft YaHei', Arial, sans-serif;display: inline-block;flex: 1 1 0%;padding: 0px 4px;">
+              <section>
+                <section style="text-align: center;margin-bottom: 12px;" nodeleaf="">
+                  <img alt="Image" class="rich_pages wxw-img" 
+                    style="display: inline-block; max-width: 100%; height: auto !important; border-radius: 12px; visibility: visible !important; width: 330.5px !important;" 
+                    src="${base64}" crossorigin="anonymous">
+                </section>
+              </section>
+            </section>
+          `;
+        }).join("");
+
+        return sectionStart + imageSections + sectionEnd;
+    }
+
+    async images2html(imgs: string | string[]): Promise<string | null> {
+        if (Array.isArray(imgs)) {
+            let ximgs = [];
+            for (let x of imgs) {
+                if (x.startsWith('http')) {
+                    ximgs.push(x)
+                } else {
+                    let c = await this.image_to_img(x, true);
+                    ximgs.push(c)
+                }
+            }
+            ximgs = ximgs.filter((x): x is string => x !== undefined && x !== null);
+            if (ximgs.length > 0) {
+                let html = this.generateSideBySideImages(ximgs);
+                return html
+            } else {
+                return null;
+            }
+        } else if (typeof imgs == 'string') {
+            let obsidianImgs = imgs.match(/!?\[\[([^|\]]+\.(?:png|jpg|jpeg|gif|webp|bmp|svg))(?:\|.*?)?]]/g) || [];
+
+            let markdownImgs = Array.from(
+                imgs.matchAll(/!\[\]\((https?:\/\/[^\s)]+)\)/g),
+                m => m[1]
+            );
+
+            // 合并两种图片链接
+            let ximgs = [...obsidianImgs, ...markdownImgs];
+            return this.images2html(ximgs);
+        }else{
+            return null;
+        }
+    }
+
+
 }
