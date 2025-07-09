@@ -16,6 +16,10 @@ export class Wxmp {
         this.hljs = require('highlight.js');
     }
 
+    get blank_line(){
+        return '<section><br></section>';
+    }
+
     get ctx_map() {
         let msg = this.plugin.settings.wxmp_config.trim();
         if(msg.trim()==''){
@@ -166,7 +170,7 @@ export class Wxmp {
     }
 
     async selection_to_wxmp(){
-        let htmls = ['<section><br></section>'];
+        let htmls = [this.blank_line];
         let sel = this.plugin.easyapi.ceditor.cm.state.selection.main;
         if(sel.from==sel.to){
             return null
@@ -205,13 +209,13 @@ export class Wxmp {
             }else{
                 htmls.push(rhtml);
             }
-            htmls.push('<section><br></section>')
+            htmls.push(this.blank_line)
         }
         this.copy_as_html(htmls);
     }
 
     async tfile_to_wxmp(tfile: TFile) {
-        let htmls =  ['<section><br></section>'];
+        let htmls =  [this.blank_line];
         let ctx = await this.app.vault.read(tfile);
         for (let section of this.app.metadataCache.getFileCache(tfile)?.sections || []) {
             if (section.type == 'yaml') {
@@ -226,7 +230,7 @@ export class Wxmp {
             }else{
                 htmls.push(rhtml);
             }
-            htmls.push('<section><br></section>');
+            htmls.push(this.blank_line);
         }
         this.copy_as_html(htmls);
     }
@@ -463,9 +467,15 @@ export class Wxmp {
         return html
     }
 
-    async copy_as_html(ctx: string | string[]) {
+    async copy_as_html(ctx: string | string[],pre_blank=true,next_blank=true) {
         if (typeof (ctx) == 'string') {
             ctx = [ctx]
+        }
+        if(pre_blank && ctx[0]!=this.blank_line){
+            ctx.unshift(this.blank_line)
+        }
+        if(next_blank && ctx[ctx.length-1]!=this.blank_line){
+            ctx.push(this.blank_line)
         }
         let data = new ClipboardItem({
             "text/html": new Blob(ctx, {
