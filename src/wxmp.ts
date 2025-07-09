@@ -30,24 +30,30 @@ export class Wxmp {
         }
 
         if (!config['h1']) {
-            config['h1'] = this.format_wxmp_h1;
+            config['h1'] = this.format_wxmp_h1.bind(this);
         }
         if (!config['h2']) {
-            config['h2'] = this.format_wxmp_h2;
+            config['h2'] = this.format_wxmp_h2.bind(this);
         }
         if (!config['h3']) {
-            config['h3'] = this.format_wxmp_h3;
+            config['h3'] = this.format_wxmp_h3.bind(this);
         }
         if (!config['p code']) {
-            config['p code'] = this.format_wxmp_p_code;
+            config['p code'] = this.format_wxmp_p_code.bind(this);
         }
         if (!config['li code']) {
-            config['li code'] = this.format_wxmp_li_code;
+            config['li code'] = this.format_wxmp_li_code.bind(this);
+        }
+
+        if (!config['section@html']) {
+            config['section@html'] = this.format_section_html.bind(this);
         }
 
         if (!config['section@cards-album']) {
             config['section@cards-album'] = this.format_code_block_cards_album.bind(this);
         }
+
+        
         return config;
     }
 
@@ -121,55 +127,111 @@ export class Wxmp {
         return new XMLSerializer().serializeToString(doc.body);
     }
 
+    async section_to_wxmp(section:any,sec:string){
+        if (section.type == 'yaml') {
+            return null;
+        }
+
+        let rhtml:any = null;
+
+        for(let k in this.ctx_map){
+            if(k.startsWith('section@')){
+                let tpl = this.ctx_map[k];
+                if (typeof tpl == 'function') {
+                    rhtml = await tpl(section,sec);
+                } else {
+                    let rendered = await this.plugin.easyapi.tpl.parse_templater(
+                        tpl, true,{section:section,sec:sec},[0]
+                    );
+                    if (rendered.length > 0 && rendered[0].trim() != '') {
+                        rhtml = rendered[0];
+                    }
+                }
+                if(rhtml){
+                    break;
+                }
+            }
+        }
+
+        if(!rhtml){
+            if(section.type == 'code'){
+                let items = sec.split('\n');
+                items[0] = items[0].slice(0,3)+'js'+'\n//'+items[0].slice(3);
+                sec = items.join('\n');
+            }
+            let html = this.marked.marked(sec);
+            rhtml = await this.html_to_wxmp(html);
+        }
+        return rhtml;
+    }
+
+    async selection_to_wxmp(){
+        let htmls = ['<section><br></section>'];
+        let sel = this.plugin.easyapi.ceditor.cm.state.selection.main;
+        if(sel.from==sel.to){
+            return null
+        }
+        let ctx = await this.plugin.easyapi.ccontent;
+        if(!ctx){
+            return null
+        }
+        for(let section of this.plugin.easyapi.cmeta?.sections || []){
+            if(sel.to<=section.position.start.offset){
+                continue
+            }
+            if(sel.from>=section.position.end.offset){
+                continue
+            }
+            let from = Math.max(sel.from,section.position.start.offset);
+            let to = Math.min(sel.to,section.position.end.offset);
+            let sec = ctx.slice(from,to).trim();
+
+            if(section.type=='code'){
+                let items = this.plugin.easyapi.editor.slice_by_position(ctx, section.position).trim().split('\n')
+                if(!sec.startsWith(items[0])){
+                    sec = items[0]+'\n'+sec;
+                }
+                if(!sec.endsWith(items.last() || '')){
+                    sec = sec + '\n' + items.last();
+                }
+            }
+
+            if(sec==''){continue}
+            let rhtml = await this.section_to_wxmp(section,sec);
+            if(!rhtml){continue}
+
+            if(Array.isArray(rhtml)){
+                htmls.push(...rhtml);
+            }else{
+                htmls.push(rhtml);
+            }
+            htmls.push('<section><br></section>')
+        }
+        this.copy_as_html(htmls);
+    }
+
     async tfile_to_wxmp(tfile: TFile) {
-        let htmls = [];
+        let htmls =  ['<section><br></section>'];
         let ctx = await this.app.vault.read(tfile);
         for (let section of this.app.metadataCache.getFileCache(tfile)?.sections || []) {
             if (section.type == 'yaml') {
                 continue
             }
             let sec = this.plugin.easyapi.editor.slice_by_position(ctx, section.position);
+            let rhtml = await this.section_to_wxmp(section,sec);
+            if(!rhtml){continue}
 
-            let rhtml:any = null;
-
-            for(let k in this.ctx_map){
-                if(k.startsWith('section@')){
-                    let tpl = this.ctx_map[k];
-                    if (typeof tpl == 'function') {
-                        rhtml = await tpl(section,sec);
-                    } else {
-                        let rendered = await this.plugin.easyapi.tpl.parse_templater(
-                            tpl, true,{section:section,sec:sec},[0]
-                        );
-                        if (rendered.length > 0 && rendered[0].trim() != '') {
-                            rhtml = rendered[0];
-                        }
-                    }
-                    if(rhtml){
-                        break;
-                    }
-                }
-            }
-
-            if(!rhtml){
-                if(section.type == 'code'){
-                    let items = sec.split('\n');
-                    items[0] = items[0].slice(0,3)+'js'+'\n//'+items[0].slice(3);
-                    sec = items.join('\n');
-                }
-                let html = this.marked.marked(sec);
-                rhtml = await this.html_to_wxmp(html);
-                htmls.push(rhtml);
+            if(Array.isArray(rhtml)){
+                htmls.push(...rhtml);
             }else{
-                if(Array.isArray(rhtml)){
-                    htmls.push(...rhtml);
-                }else{
-                    htmls.push(rhtml);
-                }
+                htmls.push(rhtml);
             }
+            htmls.push('<section><br></section>');
         }
-        this.plugin.wxmp.copy_as_html(htmls);
+        this.copy_as_html(htmls);
     }
+
+
 
     async html_to_wxmp(html: string) {
         let rhtml;
@@ -511,6 +573,14 @@ export class Wxmp {
         return items;
     }
 
+    async format_section_html(section: any, sec:string) {
+        if(section.type=='html'){
+            return sec;
+        }else{
+            return null;
+        }
+    }
+
 
     generateSideBySideImages(base64Images: string[]) {
         const sectionStart = `<section style="color: rgb(0, 0, 0);font-family: 'Microsoft YaHei';font-size: medium;font-style: normal;font-variant-ligatures: normal;font-variant-caps: normal;font-weight: 400;letter-spacing: normal;orphans: 2;text-align: start;text-indent: 0px;text-transform: none;widows: 2;word-spacing: 0px;-webkit-text-stroke-width: 0px;white-space: normal;text-decoration-thickness: initial;text-decoration-style: initial;text-decoration-color: initial;margin-bottom: 18px;display: flex;justify-content: space-between;flex-shrink: 0;">`;
@@ -567,6 +637,4 @@ export class Wxmp {
             return null;
         }
     }
-
-
 }
