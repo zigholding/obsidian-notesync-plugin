@@ -244,10 +244,7 @@ const cmd_export_as_single_note = (plugin: NoteSyncPlugin) => ({
 		const path = require("path");
 		const { dialog } = require("electron").remote;
 
-		let cfiles = [];
-		if(plugin.easyapi.nc){
-			cfiles = plugin.easyapi.nc.chain.get_selected_files()
-		}
+		let cfiles = plugin.easyapi.file.get_selected_files();
 		if(cfiles.length<=2){
 			// 1. 当前文件
 			let cfile = plugin.easyapi.cfile;

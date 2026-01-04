@@ -52,9 +52,9 @@ export class Strings{
 
     get cmd_export_as_single_note(){
         if(this.language=='zh'){
-            return '导出目录文件';
+            return '导出多条笔记';
         }else{
-            return 'Export folder';
+            return 'Export notes';
         }
     }
 
