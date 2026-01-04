@@ -244,30 +244,41 @@ const cmd_export_as_single_note = (plugin: NoteSyncPlugin) => ({
 		const path = require("path");
 		const { dialog } = require("electron").remote;
 
-		// 1. 当前文件
-		let cfile = plugin.easyapi.cfile;
-		if (!cfile) {
-			new Notice("未找到当前文件");
-			return;
+		let cfiles = [];
+		if(plugin.easyapi.nc){
+			cfiles = plugin.easyapi.nc.chain.get_selected_files()
 		}
+		if(cfiles.length<=2){
+			// 1. 当前文件
+			let cfile = plugin.easyapi.cfile;
+			if (!cfile) {
+				new Notice("未找到当前文件");
+				return;
+			}
 
-		// 2. 读取内容
-		let n = 0;
-		if(cfile.parent && cfile.parent.children.filter(x=> x instanceof TFolder).length>0){
-			n = await plugin.easyapi.dialog_suggest([`-1 - All`,`0 - Brother`,`1 - Subfolder`],[-1,0,1]);
-			if(n == null){n=0}
+			// 2. 读取内容
+			let n = 0;
+			if(cfile.parent && cfile.parent.children.filter(x=> x instanceof TFolder).length>0){
+				n = await plugin.easyapi.dialog_suggest([`-1 - All`,`0 - Brother`,`1 - Subfolder`],[-1,0,1]);
+				if(n == null){n=0}
+			}
+
+			cfiles = plugin.easyapi.file.get_tfiles_of_folder(cfile.parent,n)
 		}
-
-		let cfiles = plugin.easyapi.file.get_tfiles_of_folder(cfile.parent,n)
 		
 		if(plugin.easyapi.nc){
 			cfiles = plugin.easyapi.nc.chain.sort_tfiles_by_chain(cfiles);
 		}
 
+		if(cfiles.length==0){
+			new Notice("没有文件");
+			return;
+		}
+
 		// 3. 打开「另存为」对话框
 		const result = await dialog.showSaveDialog({
 			title: plugin.strings.cmd_export_as_single_note,
-			defaultPath: (cfile.parent?.name || cfile.basename+'_parent') + ".md",
+			defaultPath: (cfiles[0].parent?.name || cfiles[0].basename+'_parent') + ".md",
 			filters: [
 				{ name: "Markdown", extensions: ["md"] },
 				{ name: "All Files", extensions: ["*"] }
