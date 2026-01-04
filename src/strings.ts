@@ -50,6 +50,14 @@ export class Strings{
         }
     }
 
+    get cmd_export_as_single_note(){
+        if(this.language=='zh'){
+            return '导出目录文件';
+        }else{
+            return 'Export folder';
+        }
+    }
+
     get prompt_path_of_folder(){
         if(this.language=='zh'){
             return '输入文件夹路径'

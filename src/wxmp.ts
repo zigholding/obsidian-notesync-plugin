@@ -56,8 +56,10 @@ export class Wxmp {
         if (!config['section@cards-album']) {
             config['section@cards-album'] = this.format_code_block_cards_album.bind(this);
         }
-
-        
+        let tfiles = this.plugin.easyapi.file.get_all_tfiles_of_tags('NoteSyncWxmp');
+        for(let i in tfiles){
+            config[`section@${i}`] = tfiles[i].basename;
+        }
         return config;
     }
 
@@ -127,27 +129,27 @@ export class Wxmp {
                 console.warn(`图片 ${src} 转换失败:`, e);
             }
         }
-
         return new XMLSerializer().serializeToString(doc.body);
     }
 
-    async section_to_wxmp(section:any,sec:string){
+    async section_to_wxmp(section:any,sec:string,ctx:string){
         if (section.type == 'yaml') {
             return null;
         }
 
         let rhtml:any = null;
-
-        for(let k in this.ctx_map){
+        let ctx_map = this.ctx_map;
+        for(let k in ctx_map){
             if(k.startsWith('section@')){
-                let tpl = this.ctx_map[k];
+                let tpl = ctx_map[k];
                 if (typeof tpl == 'function') {
                     rhtml = await tpl(section,sec);
                 } else {
                     let rendered = await this.plugin.easyapi.tpl.parse_templater(
-                        tpl, true,{section:section,sec:sec},[0]
+                        tpl, true,{section:section,sec:sec,ctx:ctx},[0]
                     );
-                    if (rendered.length > 0 && rendered[0].trim() != '') {
+                    rendered = rendered.filter(x=>x);
+                    if (rendered && rendered.length > 0 && rendered[0].trim() != '') {
                         rhtml = rendered[0];
                     }
                 }
@@ -191,7 +193,9 @@ export class Wxmp {
             let sec = ctx.slice(from,to).trim();
 
             if(section.type=='code'){
-                let items = this.plugin.easyapi.editor.slice_by_position(ctx, section.position).trim().split('\n')
+                let items = this.plugin.easyapi.editor.slice_by_position(
+                    ctx, section.position
+                ).trim().split('\n')
                 if(!sec.startsWith(items[0])){
                     sec = items[0]+'\n'+sec;
                 }
@@ -201,7 +205,7 @@ export class Wxmp {
             }
 
             if(sec==''){continue}
-            let rhtml = await this.section_to_wxmp(section,sec);
+            let rhtml = await this.section_to_wxmp(section,sec,sec);
             if(!rhtml){continue}
 
             if(Array.isArray(rhtml)){
@@ -222,7 +226,7 @@ export class Wxmp {
                 continue
             }
             let sec = this.plugin.easyapi.editor.slice_by_position(ctx, section.position);
-            let rhtml = await this.section_to_wxmp(section,sec);
+            let rhtml = await this.section_to_wxmp(section,sec,ctx);
             if(!rhtml){continue}
 
             if(Array.isArray(rhtml)){
@@ -250,9 +254,10 @@ export class Wxmp {
         rhtml = this.html_replace_code(rhtml)
 
         // 替换标题
-        for (let k in this.ctx_map) {
+        let ctx_map = this.ctx_map;
+        for (let k in ctx_map) {
             if(k.contains('@')){continue;}
-            rhtml = await this.set_tag_with_tpl(rhtml, k, this.ctx_map[k]);
+            rhtml = await this.set_tag_with_tpl(rhtml, k, ctx_map[k]);
         }
 
         // [[格式化图片链接]]
