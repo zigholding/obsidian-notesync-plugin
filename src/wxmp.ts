@@ -530,7 +530,16 @@ export class Wxmp {
                 const codeLine = doc.createElement('code');
                 const span = doc.createElement('span');
                 span.setAttribute('leaf', '');
-                span.innerHTML = line.trim() === '' ? '<br>' : line;
+                // 公众号会折叠普通空格（含 return null → returnnull），
+                // 只替换标签外的空白，避免破坏 hljs 的 class 属性
+                if (this.is_blank_code_line(line)) {
+                    span.innerHTML = '<br>';
+                } else {
+                    span.innerHTML = line.replace(/<[^>]+>|[^<]+/g, (part) => {
+                        if (part.startsWith('<')) return part;
+                        return part.replace(/\t/g, '    ').replace(/ /g, '&nbsp;');
+                    });
+                }
                 codeLine.appendChild(span);
                 pre.appendChild(codeLine);
             });
