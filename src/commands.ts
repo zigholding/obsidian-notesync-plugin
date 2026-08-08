@@ -4,7 +4,6 @@ import {
 } from 'obsidian';
 
 import NoteSyncPlugin from '../main';
-import { it } from 'node:test';
 
 const cmd_export_current_note = (plugin: NoteSyncPlugin) => ({
 	id: 'export_current_note',
@@ -23,9 +22,9 @@ const cmd_set_vexporter = (plugin: NoteSyncPlugin) => ({
 	callback: async () => {
 		let tfile = plugin.app.workspace.getActiveFile();
 		if (!tfile) { return }
-		let dir = await plugin.dialog_prompt(plugin.strings.prompt_path_of_folder);
+		let dir = await plugin.easyapi.dialog_prompt(plugin.strings.prompt_path_of_folder);
 		let item: { [key: string]: any } = {};
-		if (plugin.fsEditor.fs.existsSync(dir)) {
+		if (plugin.easyapi.fs.fs.existsSync(dir)) {
 			item['Dir'] = dir;
 		}
 		item['Name'] = 'readMe';
@@ -50,50 +49,50 @@ const cmd_export_plugin = (plugin: NoteSyncPlugin) => ({
 	callback: async () => {
 
 		let plugins = Object.keys((plugin.app as any).plugins.plugins);
-		let p = await plugin.dialog_suggest(plugins, plugins);
+		let p = await plugin.easyapi.dialog_suggest(plugins, plugins);
 		let eplugin = (plugin.app as any).plugins.getPlugin(p);
 		if (eplugin) {
 			let paths = plugin.settings.vaultDir.split("\n")
-			let target = await plugin.fsEditor.select_valid_dir(
+			let target = await plugin.easyapi.fs.select_valid_dir(
 				paths
 			)
 			if (target) {
-				let items = plugin.fsEditor.list_dir(target, false)
+				let items = plugin.easyapi.fs.list_dir(target, false)
 				items = items.filter((x: string) => x.startsWith('.') && x != '.git').filter(
 					(x: string) => {
-						let path = plugin.fsEditor.path.join(target, x)
-						if (!plugin.fsEditor.isdir(path)) {
+						let path = plugin.easyapi.fs.path.join(target, x)
+						if (!plugin.easyapi.fs.isdir(path)) {
 							return false
 						}
-						let items = plugin.fsEditor.list_dir(path, false)
+						let items = plugin.easyapi.fs.list_dir(path, false)
 						return items.contains('plugins')
 					}
 				)
 				if (items.length == 1) {
-					target = plugin.fsEditor.path.join(target, items[0], 'plugins')
+					target = plugin.easyapi.fs.path.join(target, items[0], 'plugins')
 				} else if (items.length > 1) {
-					let item = await plugin.dialog_suggest(
+					let item = await plugin.easyapi.dialog_suggest(
 						items, items, 'config'
 					)
 					if (item) {
-						target = plugin.fsEditor.path.join(target, item, 'plugins')
+						target = plugin.easyapi.fs.path.join(target, item, 'plugins')
 					}
 				}
 			}
-			if (!plugin.fsEditor.fs.existsSync(target) ||
-				plugin.fsEditor.path.basename(target) != 'plugins') {
-				target = await plugin.dialog_prompt(plugin.strings.prompt_path_of_folder);
+			if (!plugin.easyapi.fs.fs.existsSync(target) ||
+				plugin.easyapi.fs.path.basename(target) != 'plugins') {
+				target = await plugin.easyapi.dialog_prompt(plugin.strings.prompt_path_of_folder);
 			}
 
 			target = target.replace(/\\/g, '/');
 			if (!target.endsWith('/' + p)) {
 				target = target + '/' + p;
 			}
-			if (!plugin.fsEditor.fs.existsSync(target)) {
-				plugin.fsEditor.fs.mkdirSync(target);
+			if (!plugin.easyapi.fs.fs.existsSync(target)) {
+				plugin.easyapi.fs.fs.mkdirSync(target);
 			}
 			let items = ['main.js', 'manifest.json', 'styles.css'];
-			let dj = await plugin.dialog_suggest(
+			let dj = await plugin.easyapi.dialog_suggest(
 				[plugin.strings.item_skip_data_json, plugin.strings.item_copy_data_json],
 				[false, true],
 				''
@@ -102,9 +101,9 @@ const cmd_export_plugin = (plugin: NoteSyncPlugin) => ({
 				items.push('data.json')
 			}
 			for (let item of items) {
-				let src = `${plugin.fsEditor.root}/${eplugin.manifest.dir}/${item}`;
+				let src = `${plugin.easyapi.fs.root}/${eplugin.manifest.dir}/${item}`;
 				let dst = `${target}/${item}`;
-				let flag = plugin.fsEditor.copy_file(src, dst, 'overwrite');
+				let flag = plugin.easyapi.fs.copy_file(src, dst, 'overwrite');
 				if (flag) {
 					console.log(`Copy ${item} to ${target}`, 5000)
 				}
@@ -119,7 +118,7 @@ const cmd_download_git_repo = (plugin: NoteSyncPlugin) => ({
 	icon: 'cloud-download',
 	callback: async () => {
 		let repos = plugin.settings.git_repo.split('\n')
-		let repo = await plugin.dialog_suggest(repos, repos);
+		let repo = await plugin.easyapi.dialog_suggest(repos, repos);
 		if (!repo) { return }
 
 		let match = repo.match(/^https?:\/\/(.*)\.com\/([^/]*)\/([^/]*)\/tree\/([^/]*)\/?(.*)$/);
@@ -255,7 +254,7 @@ const cmd_export_as_single_note = (plugin: NoteSyncPlugin) => ({
 
 			// 2. 读取内容
 			let n = 0;
-			if(cfile.parent && cfile.parent.children.filter(x=> x instanceof TFolder).length>0){
+			if(cfile.parent && cfile.parent.children.filter((x : any)=> x instanceof TFolder).length>0){
 				n = await plugin.easyapi.dialog_suggest([`-1 - All`,`0 - Brother`,`1 - Subfolder`],[-1,0,1]);
 				if(n == null){n=0}
 			}

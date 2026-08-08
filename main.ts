@@ -1,30 +1,20 @@
 import {Notice, Plugin, TFile, TFolder } from 'obsidian';
 
-import { FsEditor } from 'src/fseditor';
 import { Wxmp } from 'src/wxmp';
 import { Strings } from 'src/strings';
 import {MySettings,NoteSyncSettingTab,DEFAULT_SETTINGS} from 'src/setting'
 
 import { addCommands } from 'src/commands';
 
-import {dialog_suggest} from 'src/gui/inputSuggester'
-import {dialog_prompt} from 'src/gui/inputPrompt'
-import {EasyAPI} from 'src/easyapi/easyapi'
 
 export default class NoteSyncPlugin extends Plugin {
 	strings : Strings;
 	settings: MySettings;
-	fsEditor : FsEditor;
 	yaml: string;
-	dialog_suggest: Function;
-	dialog_prompt: Function;
-	easyapi: EasyAPI;
 	wxmp: Wxmp;
 
 
 	async onload() {
-		this.dialog_suggest = dialog_suggest
-		this.dialog_prompt = dialog_prompt
 		this.app.workspace.onLayoutReady(
 			async()=>{
 				await this._onload_()
@@ -32,14 +22,16 @@ export default class NoteSyncPlugin extends Plugin {
 		)
 	}
 
+	get easyapi(){
+		return (window as any).ea;
+	}
+
 	async _onload_() {
 		this.yaml = 'note-sync'
 		this.strings = new Strings();
-		this.easyapi = new EasyAPI(this.app);
 		
 
 		await this.loadSettings();
-		this.fsEditor = new FsEditor(this);
 		this.wxmp = new Wxmp(this);
 		// This adds a settings tab so the user can configure various aspects of the plugin
 		this.addSettingTab(new NoteSyncSettingTab(this.app, this));
@@ -52,21 +44,21 @@ export default class NoteSyncPlugin extends Plugin {
 					.setTitle(this.strings.item_sync_vault)
 					.setIcon("document")
 					.onClick(async () => {
-						let dst = await this.fsEditor.select_valid_dir(
+						let dst = await this.easyapi.fs.select_valid_dir(
 							this.settings.vaultDir.split("\n")
 						);
 						if(!dst){
-							dst = await this.dialog_prompt("Root of vault");
-							if(!this.fsEditor.isdir(dst)){
+							dst = await this.easyapi.dialog_prompt("Root of vault");
+							if(!this.easyapi.fs.isdir(dst)){
 								new Notice("Invalid root: " + dst);
 								return;
 							}
 						}
 						if(file instanceof TFile){
-							this.fsEditor.sync_tfile(file,dst,'mtime',true,false);
+							this.easyapi.fs.sync_tfile(file,dst,'mtime',true,false);
 
 						}else if(file instanceof TFolder){
-							this.fsEditor.sync_tfolder(file,dst,'mtime',true,false,this.settings.strict_mode);
+							this.easyapi.fs.sync_tfolder(file,dst,'mtime',true,false,this.settings.strict_mode);
 						}
 					});
 				});
@@ -101,11 +93,11 @@ export default class NoteSyncPlugin extends Plugin {
 		if(!dst){
 			dst = fm[this.yaml]?.Dir
 			if(!dst){
-				dst = await this.dialog_prompt('Path of LocalGitProject');
+				dst = await this.easyapi.dialog_prompt('Path of LocalGitProject');
 			}
 		}
 
-		if(!dst || !this.fsEditor.isdir(dst)){
+		if(!dst || !this.easyapi.fs.isdir(dst)){
 			new Notice(this.strings.notice_nosuchdir,3000);
 			return;
 		}
@@ -138,18 +130,18 @@ export default class NoteSyncPlugin extends Plugin {
 			  		return `![](./${assets}/${filename.replace(/ /g,'%20')})`;
 			})
 		}
-		await this.fsEditor.fs.writeFile(
+		await this.easyapi.fs.writeFile(
 			target, ctx, 'utf-8', 
 			(err:Error) => {return;}
 		)
 		new Notice(`Export to ${target}`,5000)
 		if(assets){
-			let olinks = this.fsEditor.get_outlinks(tfile,false);
-			let adir = this.fsEditor.path.join(dst,assets);
-			this.fsEditor.mkdir_recursive(adir);
+			let olinks = this.easyapi.fs.get_outlinks(tfile,false);
+			let adir = this.easyapi.fs.path.join(dst,assets);
+			this.easyapi.fs.mkdir_recursive(adir);
 			for(let f of olinks){
 				if(!(f.extension==='md')){
-					let flag = this.fsEditor.copy_tfile(f,adir+'/'+f.basename+'.'+f.extension);
+					let flag = this.easyapi.fs.copy_tfile(f,adir+'/'+f.basename+'.'+f.extension);
 					if(flag){
 						new Notice(`Copy ${f.name}`,5000)
 					}

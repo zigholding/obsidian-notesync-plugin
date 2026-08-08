@@ -1,7 +1,6 @@
 
-import { App, Editor, MarkdownView, Modal, Notice, Plugin, PluginSettingTab, Setting, TFile, TFolder } from 'obsidian';
+import { App,  TFile } from 'obsidian';
 import NoteSyncPlugin from "../main";
-import { on } from 'node:events';
 
 export class Wxmp {
     marked: any;
@@ -56,7 +55,7 @@ export class Wxmp {
         if (!config['section@cards-album']) {
             config['section@cards-album'] = this.format_code_block_cards_album.bind(this);
         }
-        let tfiles = this.plugin.easyapi.file.get_all_tfiles_of_tags('NoteSyncWxmp');
+        let tfiles = this.plugin.easyapi.file.get_all_tfiles_tags('NoteSyncWxmp');
         for(let i in tfiles){
             config[`section@${i}`] = tfiles[i].basename;
         }
@@ -148,7 +147,7 @@ export class Wxmp {
                     let rendered = await this.plugin.easyapi.tpl.parse_templater(
                         tpl, true,{section:section,sec:sec,ctx:ctx},[0]
                     );
-                    rendered = rendered.filter(x=>x);
+                    rendered = rendered.filter((x:any)=>x);
                     if (rendered && rendered.length > 0 && rendered[0].trim() != '') {
                         rhtml = rendered[0];
                     }
@@ -213,7 +212,7 @@ export class Wxmp {
             }else{
                 htmls.push(rhtml);
             }
-            htmls.push(this.blank_line)
+            // htmls.push(this.blank_line)
         }
         this.copy_as_html(htmls);
     }
@@ -234,7 +233,7 @@ export class Wxmp {
             }else{
                 htmls.push(rhtml);
             }
-            htmls.push(this.blank_line);
+            // htmls.push(this.blank_line);
         }
         this.copy_as_html(htmls);
     }
@@ -263,8 +262,8 @@ export class Wxmp {
         // [[格式化图片链接]]
         rhtml = this.formatWeChatImageLink(rhtml)
 
-        // 列表最后一个元素段后距设置为 24px
-        rhtml = this.setLastLiMargin(rhtml)
+        // 规范化列表，避免公众号里 li 被拆成多行
+        rhtml = this.normalizeListHtml(rhtml)
         // 列表之前一个元素段后距设置为 8px
         rhtml = this.setParagraphSpacingBeforeList(rhtml)
         return rhtml
@@ -273,55 +272,87 @@ export class Wxmp {
     async set_tag_with_tpl(htmlString: string, selector: string, tpl: string | Function) {
         let parser = new DOMParser();
         let doc = parser.parseFromString(htmlString, 'text/html');
-        let items = doc.querySelectorAll(selector);
+        let items = Array.from(doc.querySelectorAll(selector));
 
-        await Promise.all(Array.from(items).map(async (item) => {
+        for (let item of items) {
+            if (!item.isConnected) continue;
             let content = item.textContent;
+            let rendered: any = null;
 
             if (typeof tpl == 'function') {
-                let rendered = tpl(content);
-                if (rendered) {
-                    item.innerHTML = rendered;
-                }
+                rendered = tpl(content);
             } else {
-                // 模板渲染，传入content
-                let rendered = await this.plugin.easyapi.tpl.parse_templater(tpl, true, content);
-                if (rendered.length > 0) {
-                    item.innerHTML = rendered[0];
+                // 模板渲染，传入 content 字符串；模板内用 tp.config.extra 取用
+                let result = await this.plugin.easyapi.tpl.parse_templater(tpl, true, content);
+                if (result.length > 0) {
+                    rendered = result[0];
                 }
             }
-        }));
 
-        // 序列化回字符串
-        let serializer = new XMLSerializer();
-        let modifiedHtmlString = serializer.serializeToString(doc.body);
-        return modifiedHtmlString;
+            if (typeof rendered !== 'string' || !rendered.trim()) continue;
+            let html = rendered.trim();
+
+            // 模板常返回完整标签（如 <h2>..</h2> / <code>..</code>），必须替换整个节点。
+            // 若写进 innerHTML，会变成 <h2><h2>..</h2></h2>，浏览器再拆成空 h2 + 真标题。
+            let wrap = doc.createElement('div');
+            wrap.innerHTML = html;
+            if (wrap.children.length >= 1) {
+                item.replaceWith(...Array.from(wrap.childNodes));
+            } else {
+                item.innerHTML = html;
+            }
+        }
+
+        return new XMLSerializer().serializeToString(doc.body);
     }
 
 
-    setLastLiMargin(htmlString: string) {
+    normalizeListHtml(htmlString: string) {
         let parser = new DOMParser();
         let doc = parser.parseFromString(htmlString, 'text/html');
 
-        let lists = doc.querySelectorAll('ol, ul');
+        doc.querySelectorAll('li').forEach(li => {
+            // 任务列表 checkbox 粘贴到公众号后常变成多余空行
+            li.querySelectorAll('input[type="checkbox"]').forEach(el => el.remove());
 
-        lists.forEach(list => {
-            let lis = list.querySelectorAll('li');
-            if (lis.length > 0) {
-                let lastLi = lis[lis.length - 1];
-
-                // 保留原始内容，包裹一个section加margin
-                let originalHTML = lastLi.innerHTML;
-                lastLi.innerHTML = `
-        <section style="margin-bottom: 24px;">
-          ${originalHTML}
-        </section>
-      `;
-            }
+            // marked 松散列表会包 <p>，公众号里会拆行
+            Array.from(li.querySelectorAll(':scope > p')).forEach(p => {
+                while (p.firstChild) {
+                    li.insertBefore(p.firstChild, p);
+                }
+                p.remove();
+            });
         });
 
-        let serializer = new XMLSerializer();
-        return serializer.serializeToString(doc.body);
+        doc.querySelectorAll('ol, ul').forEach(list => {
+            let lis = Array.from(list.querySelectorAll(':scope > li'));
+            lis.forEach((li, i) => {
+                // 已是单 section 包裹则只补最后一项的段后距
+                let onlySection =
+                    li.children.length === 1 &&
+                    li.children[0].tagName.toLowerCase() === 'section' &&
+                    Array.from(li.childNodes).every(
+                        n => n.nodeType !== Node.TEXT_NODE || !(n.textContent || '').trim()
+                    );
+
+                let section: HTMLElement;
+                if (onlySection) {
+                    section = li.children[0] as HTMLElement;
+                } else {
+                    section = doc.createElement('section');
+                    while (li.firstChild) {
+                        section.appendChild(li.firstChild);
+                    }
+                    li.appendChild(section);
+                }
+
+                if (i === lis.length - 1) {
+                    section.style.marginBottom = '24px';
+                }
+            });
+        });
+
+        return new XMLSerializer().serializeToString(doc.body);
     }
 
 
