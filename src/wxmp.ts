@@ -160,9 +160,7 @@ export class Wxmp {
 
         if(!rhtml){
             if(section.type == 'code'){
-                let items = sec.split('\n');
-                items[0] = items[0].slice(0,3)+'js'+'\n//'+items[0].slice(3);
-                sec = items.join('\n');
+                sec = this.normalize_code_section_for_wxmp(sec);
             }
             let html = this.marked.marked(sec);
             rhtml = await this.html_to_wxmp(html);
@@ -418,6 +416,36 @@ export class Wxmp {
     }
 
 
+    /** 公众号代码块只认 js：重写围栏，正文首尾空行去掉，原语言写成 //lang */
+    normalize_code_section_for_wxmp(sec: string) {
+        let items = sec.replace(/^\uFEFF/, '').split(/\r?\n/);
+        while (items.length && items[0].trim() === '') items.shift();
+        while (items.length && items[items.length - 1].trim() === '') items.pop();
+        if (!items.length) return sec;
+
+        let fence = items[0];
+        let info = fence.startsWith('```') ? fence.slice(3).trim() : '';
+        let body = items.slice(1);
+        if (body.length && /^```/.test(body[body.length - 1].trim())) {
+            body.pop();
+        }
+        while (body.length && body[0].trim() === '') body.shift();
+        while (body.length && body[body.length - 1].trim() === '') body.pop();
+
+        let out = ['```js'];
+        if (info) out.push('//' + info);
+        out.push(...body, '```');
+        return out.join('\n');
+    }
+
+    is_blank_code_line(line: string) {
+        return line
+            .replace(/<[^>]*>/g, '')
+            .replace(/&nbsp;/gi, '')
+            .replace(/\u00a0/g, '')
+            .trim() === '';
+    }
+
     html_replace_code(html: string) {
         const parser = new DOMParser();
         const doc = parser.parseFromString(html, 'text/html');
@@ -426,7 +454,11 @@ export class Wxmp {
         codeBlocks.forEach(preCode => {
             const langMatch = preCode.className.match(/language-(\w+)/);
             const lang = langMatch ? langMatch[1] : 'plaintext';
-            const rawCode = preCode.textContent;
+            // marked / DOM 常在代码首尾带换行，去掉后再分行，避免公众号多出空行
+            let rawLines = (preCode.textContent || '').split(/\r?\n/);
+            while (rawLines.length && this.is_blank_code_line(rawLines[0])) rawLines.shift();
+            while (rawLines.length && this.is_blank_code_line(rawLines[rawLines.length - 1])) rawLines.pop();
+            const rawCode = rawLines.join('\n');
 
             let result;
             try {
@@ -453,7 +485,9 @@ export class Wxmp {
                 highlightedHtml = highlightedHtml.replaceAll(from, to);
             }
 
-            const lines = highlightedHtml.split('\n');
+            let lines = highlightedHtml.split(/\r?\n/);
+            while (lines.length && this.is_blank_code_line(lines[0])) lines.shift();
+            while (lines.length && this.is_blank_code_line(lines[lines.length - 1])) lines.pop();
 
             // 构造 section 容器
             const section = doc.createElement('section');

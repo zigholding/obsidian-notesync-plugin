@@ -221,9 +221,13 @@ const cmd_export_wxmp = (plugin: NoteSyncPlugin) => ({
 	hotkeys: [{ modifiers: ['Alt', 'Shift'], key: 'P' }],
 	callback: async () => {
 		if (!plugin.easyapi.cfile) { return }
-		let ctx = plugin.easyapi.ceditor.getSelection();
-		if (!ctx) {
-			plugin.wxmp.tfile_to_wxmp(plugin.easyapi.cfile);
+		// 以 CodeMirror 选区为准：from===to 视为未选择，导出全文。
+		// 勿用 getSelection()：它有时仍有残留文本，会走进 selection 分支；
+		// 而 selection_to_wxmp 发现无选区会直接 return，剪切板不更新，看起来像“又导出了旧内容”。
+		let sel = plugin.easyapi.ceditor?.cm?.state?.selection?.main;
+		let hasSelection = !!(sel && sel.from !== sel.to);
+		if (!hasSelection) {
+			await plugin.wxmp.tfile_to_wxmp(plugin.easyapi.cfile);
 		} else {
 			await plugin.wxmp.selection_to_wxmp();
 		}
