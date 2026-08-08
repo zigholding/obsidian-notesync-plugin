@@ -312,8 +312,22 @@ export class Wxmp {
         let doc = parser.parseFromString(htmlString, 'text/html');
 
         doc.querySelectorAll('li').forEach(li => {
-            // 任务列表 checkbox 粘贴到公众号后常变成多余空行
-            li.querySelectorAll('input[type="checkbox"]').forEach(el => el.remove());
+            // 公众号不支持 input checkbox（会变成空行/圆点），换成 ☐ / ☑
+            let checkboxes = Array.from(li.querySelectorAll('input[type="checkbox"]'));
+            if (checkboxes.length > 0) {
+                (li as HTMLElement).style.listStyle = 'none';
+                let parent = li.parentElement;
+                if (parent && parent.tagName.toLowerCase() === 'ul') {
+                    (parent as HTMLElement).style.listStyle = 'none';
+                }
+            }
+            checkboxes.forEach(el => {
+                let checked = (el as HTMLInputElement).checked
+                    || el.hasAttribute('checked');
+                let mark = doc.createElement('span');
+                mark.textContent = (checked ? '☑' : '☐') + ' ';
+                el.replaceWith(mark);
+            });
 
             // marked 松散列表会包 <p>，公众号里会拆行
             Array.from(li.querySelectorAll(':scope > p')).forEach(p => {
