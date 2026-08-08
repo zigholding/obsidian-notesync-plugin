@@ -244,6 +244,8 @@ export class Wxmp {
         // 替换图片
         rhtml = this.convertVaultImageLinksToImgTag(html);
         rhtml = await this.convertImageTagsToBase64(rhtml);
+        // 正文双链 [[Note]] / [[Note|别名]] → 去掉括号，保留显示名
+        rhtml = this.html_replace_wikilink(rhtml);
         // 替换链接
         rhtml = this.html_replace_url(rhtml);
 
@@ -391,6 +393,26 @@ export class Wxmp {
         let modifiedHtmlString = serializer.serializeToString(doc.body);
 
         return modifiedHtmlString;
+    }
+
+    html_replace_wikilink(html: string) {
+        let parser = new DOMParser();
+        let doc = parser.parseFromString(html, 'text/html');
+        let walker = doc.createTreeWalker(doc.body, NodeFilter.SHOW_TEXT);
+        let nodes: Text[] = [];
+        while (walker.nextNode()) {
+            nodes.push(walker.currentNode as Text);
+        }
+        // [[path#heading|alias]] / [[path]]；代码块内不处理
+        let re = /!?\[\[([^\]|#]+)(?:#[^\]|]*)?(?:\|([^\]]+))?\]\]/g;
+        for (let node of nodes) {
+            if (!node.nodeValue || !node.nodeValue.includes('[[')) continue;
+            if (node.parentElement?.closest('pre, code')) continue;
+            node.nodeValue = node.nodeValue.replace(re, (_m, path, alias) => {
+                return (alias || path).trim();
+            });
+        }
+        return new XMLSerializer().serializeToString(doc.body);
     }
 
     html_replace_url(html: string) {
