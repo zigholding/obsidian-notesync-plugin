@@ -1,5 +1,11 @@
+## NoteSync：多库笔记，一键镜像
 
+同步笔记 / 插件、导出 README、下载示例库，以及把笔记复制为公众号 / Word 排版。  
+Sync notes and plugins, export README, download example vault files, and copy notes as WeChat Official Account or Word HTML.
 
+> Desktop only（仅桌面端）。部分导出功能依赖 NoteChain / EasyAPI。
+
+---
 
 ### 导出笔记/Export Notes
 
@@ -9,19 +15,19 @@ To sync a file or folder:
 1. 在文件列表中，右键点击文件或文件夹；  
     Right-click the file or folder in the file list;
     
-2. 点击 `mirror to other vault`；  
-    Click `mirror to other vault`;
+2. 点击 `同步到其它库` / `Sync to other vault`；  
+    Click `Sync to other vault`;
     
-3. 输入目标库根目录；  
-    Enter the root directory of the target vault;
+3. 选择预设目标库，或输入目标库根目录；  
+    Pick a preset vault, or enter the root directory of the target vault;
     
-4. 笔记、文件夹以及笔记嵌入的附件，会按相同的文件结构复制到目标库。如果目录库中存在同名文件，则根据更新时间判定是否覆盖；  
+4. 笔记、文件夹以及笔记嵌入的附件，会按相同的文件结构复制到目标库。如果目标库中存在同名文件，则根据更新时间判定是否覆盖；  
     Notes, folders, and embedded attachments will be copied to the target vault with the same structure. If a file with the same name exists, it will be overwritten only if the source is newer.
 
 ### 导出插件/Export Plugins
 
-1. 执行命令 `Note Sync: export plugin`；  
-    Run the command `Note Sync: export plugin`;
+1. 执行命令 `Note Sync: 导出插件` / `Export plugin`；  
+    Run the command `Note Sync: Export plugin`;
     
 2. 选择要导出的插件；  
     Select the plugin you want to export;
@@ -29,8 +35,8 @@ To sync a file or folder:
 3. 选择是否导出 `data.json`；  
     Choose whether to export `data.json`;
     
-4. 输入插件保存目录；  
-    Enter the directory where the plugin will be saved;
+4. 选择或输入插件保存目录（会自动定位到目标库的 `plugins` 目录）；  
+    Select or enter the directory where the plugin will be saved (prefers the target vault's `plugins` folder);
     
 5. 输入回车键确认；  
     Press Enter to confirm.
@@ -38,8 +44,8 @@ To sync a file or folder:
 
 ### 将笔记导出为 readMe / Export a Note as `readMe`
 
-执行 `Note Sync:Set config to export note`，设置导出信息：  
-Run `Note Sync:Set config to export note` to configure the export settings:
+执行 `Note Sync: 设置导出笔记选项` / `Set config to export note`，设置导出信息：  
+Run `Note Sync: Set config to export note` to configure the export settings:
 
 - `Dir`：导出路径  
     `Dir`: Export directory
@@ -64,8 +70,66 @@ Run `Note Sync:Set config to export note` to configure the export settings:
 >   UseGitLink: true
 > ```
 
-然后执行 `Note Sync:Export current note` 导出当前笔记。  
-Then run `Note Sync:Export current note` to export the current note.
+然后执行 `Note Sync: 导出当前笔记` / `Export current note` 导出当前笔记。  
+Then run `Note Sync: Export current note` to export the current note.
+
+---
+
+### 导出微信公众号 / Export WeChat Official Account
+
+把当前笔记（或选中内容）转成公众号可用的 HTML，并写入剪切板。  
+Convert the current note (or selection) into WeChat-ready HTML and copy it to the clipboard.
+
+1. 打开笔记，按 `Alt+Shift+P`（命令：`导出微信公众号` / `Export wxmp`）；  
+    Open a note and press `Alt+Shift+P` (`Export wxmp`);
+2. 未选中文本 → 导出整篇；选中文本 → 只导出选区；  
+    No selection → whole note; selection → selection only;
+3. 打开网页版公众号编辑器，粘贴即可。  
+    Paste into the web WeChat editor.
+
+本地图片会转成 base64；可在设置里配置标题 / 行内代码样式，并支持 `cards-album` 并排图与自定义 `section@` 规则。  
+Local images become base64. Configure heading/inline-code styles in Settings; supports `cards-album` side-by-side images and custom `section@` rules.
+
+详细步骤见仓库内笔记 `NoteSync 公众号排版教程`。  
+See the in-vault note `NoteSync 公众号排版教程` for the full guide.
+
+### 复制为 Word / Copy as Word
+
+把当前笔记（或选中内容）转成 Word / WPS 友好的 HTML，并写入剪切板。  
+Convert the current note (or selection) into Office/WPS-friendly HTML and copy it to the clipboard.
+
+1. 打开笔记，按 `Alt+Shift+W`（命令：`复制为 Word 格式` / `Copy as Word`）；  
+    Open a note and press `Alt+Shift+W` (`Copy as Word`);
+2. 未选中文本 → 导出整篇；选中文本 → 只导出选区；  
+    No selection → whole note; selection → selection only;
+3. 粘贴到 Word 或 WPS。标题会映射为「标题 N」、正文映射为「正文」，避免变成「普通（网站）」。  
+    Paste into Word or WPS. Headings map to built-in Heading styles and body text to 正文, avoiding the “Normal (Web)” style.
+
+### 导出多条笔记 / Export Notes
+
+将多篇笔记合并导出为一个 Markdown 文件。  
+Merge multiple notes into one Markdown file.
+
+1. 执行命令 `导出多条笔记` / `Export notes`；  
+    Run `Export notes`;
+2. 若当前选中文件较少，可选择范围：`All`（含子文件夹）/ `Brother`（同级）/ `Subfolder`（仅子文件夹）；  
+    With few selected files, choose scope: `All` / `Brother` / `Subfolder`;
+3. 在另存为对话框中选择保存路径。  
+    Pick the save path in the Save dialog.
+
+合并结果按文件名分段，形如：  
+Each note is wrapped with a name banner, for example:
+
+```md
+=====
+笔记A.md
+=====
+
+...内容...
+```
+
+若安装了 NoteChain，会按笔记链顺序排序。  
+With NoteChain installed, notes are sorted by the note chain.
 
 ---
 
@@ -77,10 +141,10 @@ Configure the `Git repository` in the **Settings** page. The URL must include th
 > [https://github.com/zigholding/ObsidianZ/tree/master](https://github.com/zigholding/ObsidianZ/tree/master)  
 > [https://gitee.com/zigholding/ObsidianZ/tree/master](https://gitee.com/zigholding/ObsidianZ/tree/master)
 
-执行 `下载 Git 仓库文件` 命令，依次选择仓库、文件夹和文件进行下载。输入 `all` 可下载所有文件（不包括子文件夹）。  
+执行 `下载 Git 仓库文件` / `Download git repo` 命令，依次选择仓库、文件夹和文件进行下载。输入 `all` 可下载所有文件（不包括子文件夹）。  
 Run `Download git repo`, select the repository, then choose folders and files to download. Enter `all` to download all top-level files (excluding subfolders).
 
-![](././assets/下载笔记.gif)  
+![](./assets/下载笔记.gif)  
 
 下载文件时，也可以预设路径，快速下载：
 You can also preset the path for quick download when fetching files:
@@ -90,52 +154,20 @@ You can also preset the path for quick download when fetching files:
 
 ### 设置页/Settings Page
 
-![](././assets/Pasted image 20241215125538.png)
+![](./assets/Pasted%20image%2020241215125538.png)
 
-> [!NOTE]+ Root dir of vault  
+> [!NOTE]+ Root dir of vault / 库目录  
 > 导出插件或同步文件时，选择预设的目标库。多个库请用换行符分隔。  
 > Set predefined vaults for export/sync. Use newlines to separate multiple vaults.
 
-> [!Danger]+ Strict mode  
+> [!Danger]+ Strict mode / 严格模式  
 > 启用严格模式，在目标文件夹中删除源文件夹中不存在的笔记或附件。请谨慎操作，此设置会**删除文件**。  
 > Enabling strict mode will delete notes or attachments in the target folder that are not present in the source. **Use with caution**—this option will delete files.
 
+> [!NOTE]+ Git repository / Git 仓库  
+> 用于「下载 Git 仓库文件」命令，每行一个仓库地址（须含分支名）。  
+> Used by Download git repo. One repo URL per line (branch required).
 
-### 函数/Functions
-
-`NoteSync` 提供了两个个函数用于同步文件和文件夹，可用于脚本笔记中。  
-`NoteSync` provides two functions to sync files and folders, which can be used in your script notes.
-
-参数 `mode` 用于指定当目标库中已有文件时的处理方式：  
-The `mode` parameter determines how to handle existing files in the target vault:
-- `pass`：跳过  
-    `pass`: Skip
-- `overwrite`：覆盖  
-    `overwrite`: Overwrite
-- `mtime`：根据更新时间覆盖  
-    `mtime`: Overwrite if the source is newer
-
-```js
-let ns = app.plugins.plugins['note-sync']
-
-// 同步系统文件夹  
-// Sync system folder
-ns.fsEditor.sync_folder(
-	src:string,
-	dst:string,
-	mode='mtime',
-	strict=false
-)
-
-// 同步 Obsidian 笔记文件夹  
-// Sync Obsidian TFolder
-ns.fsEditor.sync_tfolder(
-	tfolder:TFolder,
-	vault_root:string,
-	mode='mtime',
-	attachment=true,
-	outlink=false,
-	strict=false
-)
-```
-
+> [!NOTE]+ Style config for wxmp / 微信公众号样式配置  
+> YAML 配置标题、行内代码等对应的 Templater 脚本笔记；清空则使用内置样式。详见公众号排版教程。  
+> YAML mapping of elements to Templater style notes; leave empty for built-in styles. See the WeChat formatting tutorial.
