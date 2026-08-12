@@ -235,6 +235,25 @@ const cmd_export_wxmp = (plugin: NoteSyncPlugin) => ({
 	}
 });
 
+const cmd_export_word = (plugin: NoteSyncPlugin) => ({
+	id: 'cmd_export_word',
+	name: plugin.strings.cmd_export_word,
+	icon: 'file-type',
+	hotkeys: [{ modifiers: ['Alt', 'Shift'], key: 'W' }],
+	callback: async () => {
+		if (!plugin.easyapi.cfile) { return }
+		// 与微信导出相同：以 CodeMirror 选区为准，无选区则导出全文
+		let sel = plugin.easyapi.ceditor?.cm?.state?.selection?.main;
+		let hasSelection = !!(sel && sel.from !== sel.to);
+		if (!hasSelection) {
+			await plugin.word.tfile_to_word(plugin.easyapi.cfile);
+		} else {
+			await plugin.word.selection_to_word();
+		}
+		new Notice(`${plugin.strings.cmd_export_word}: OK`, 5000)
+	}
+});
+
 const cmd_export_as_single_note = (plugin: NoteSyncPlugin) => ({
 	id: 'cmd_export_as_single_note',
 	name: plugin.strings.cmd_export_as_single_note,
@@ -306,7 +325,7 @@ const cmd_export_as_single_note = (plugin: NoteSyncPlugin) => ({
 
 const commandBuilders: Array<Function> = [
 	cmd_export_wxmp,
-
+	cmd_export_word,
 ];
 
 const commandBuildersDesktop: Array<Function> = [
@@ -314,7 +333,6 @@ const commandBuildersDesktop: Array<Function> = [
 	cmd_set_vexporter,
 	cmd_export_plugin,
 	cmd_download_git_repo,
-	cmd_export_wxmp,
 	cmd_export_as_single_note
 ];
 

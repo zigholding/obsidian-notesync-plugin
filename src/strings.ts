@@ -50,6 +50,14 @@ export class Strings{
         }
     }
 
+    get cmd_export_word(){
+        if(this.language=='zh'){
+            return '复制为 Word 格式';
+        }else{
+            return 'Copy as Word';
+        }
+    }
+
     get cmd_export_as_single_note(){
         if(this.language=='zh'){
             return '导出多条笔记';

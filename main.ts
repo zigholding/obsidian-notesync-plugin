@@ -1,6 +1,7 @@
 import {Notice, Plugin, TFile, TFolder } from 'obsidian';
 
 import { Wxmp } from 'src/wxmp';
+import { Word } from 'src/word';
 import { Strings } from 'src/strings';
 import {MySettings,NoteSyncSettingTab,DEFAULT_SETTINGS} from 'src/setting'
 
@@ -12,6 +13,7 @@ export default class NoteSyncPlugin extends Plugin {
 	settings: MySettings;
 	yaml: string;
 	wxmp: Wxmp;
+	word: Word;
 
 
 	async onload() {
@@ -33,6 +35,7 @@ export default class NoteSyncPlugin extends Plugin {
 
 		await this.loadSettings();
 		this.wxmp = new Wxmp(this);
+		this.word = new Word(this);
 		// This adds a settings tab so the user can configure various aspects of the plugin
 		this.addSettingTab(new NoteSyncSettingTab(this.app, this));
 		addCommands(this);

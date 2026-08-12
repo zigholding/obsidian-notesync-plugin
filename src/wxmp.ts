@@ -1,18 +1,18 @@
 
 import { App,  TFile } from 'obsidian';
+import { marked } from 'marked';
+import hljs from 'highlight.js';
 import NoteSyncPlugin from "../main";
 
 export class Wxmp {
-    marked: any;
-    hljs: any;
+    marked = marked;
+    hljs = hljs;
     app: App;
     plugin: NoteSyncPlugin;
 
     constructor(plugin: NoteSyncPlugin) {
         this.plugin = plugin;
         this.app = plugin.app;
-        this.marked = require('marked');
-        this.hljs = require('highlight.js');
     }
 
     get blank_line(){
@@ -162,7 +162,7 @@ export class Wxmp {
             if(section.type == 'code'){
                 sec = this.normalize_code_section_for_wxmp(sec);
             }
-            let html = this.marked.marked(sec);
+            let html = await this.marked.parse(sec);
             rhtml = await this.html_to_wxmp(html);
         }
         return rhtml;
@@ -504,7 +504,7 @@ export class Wxmp {
             ];
             let highlightedHtml = result.value;
             for (let [from, to] of classPairs) {
-                highlightedHtml = highlightedHtml.replaceAll(from, to);
+                highlightedHtml = highlightedHtml.replace(new RegExp(from, 'g'), to);
             }
 
             let lines = highlightedHtml.split(/\r?\n/);
