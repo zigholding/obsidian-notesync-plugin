@@ -2,6 +2,7 @@ import {Notice, Plugin, TFile, TFolder } from 'obsidian';
 
 import { Wxmp } from 'src/wxmp';
 import { Word } from 'src/word';
+import { Feishu } from 'src/feishu';
 import { Strings } from 'src/strings';
 import {MySettings,NoteSyncSettingTab,DEFAULT_SETTINGS} from 'src/setting'
 
@@ -14,6 +15,7 @@ export default class NoteSyncPlugin extends Plugin {
 	yaml: string;
 	wxmp: Wxmp;
 	word: Word;
+	feishu: Feishu;
 
 
 	async onload() {
@@ -36,6 +38,7 @@ export default class NoteSyncPlugin extends Plugin {
 		await this.loadSettings();
 		this.wxmp = new Wxmp(this);
 		this.word = new Word(this);
+		this.feishu = new Feishu(this);
 		// This adds a settings tab so the user can configure various aspects of the plugin
 		this.addSettingTab(new NoteSyncSettingTab(this.app, this));
 		addCommands(this);
@@ -63,6 +66,14 @@ export default class NoteSyncPlugin extends Plugin {
 						}else if(file instanceof TFolder){
 							this.easyapi.fs.sync_tfolder(file,dst,'mtime',true,false,this.settings.strict_mode);
 						}
+					});
+				});
+				menu.addItem((item) => {
+					item
+					.setTitle(this.strings.item_upload_feishu)
+					.setIcon("cloud-upload")
+					.onClick(async () => {
+						await this.feishu.uploadFileOrFolder(file);
 					});
 				});
 			})

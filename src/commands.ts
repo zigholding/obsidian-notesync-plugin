@@ -254,6 +254,33 @@ const cmd_export_word = (plugin: NoteSyncPlugin) => ({
 	}
 });
 
+const cmd_upload_feishu = (plugin: NoteSyncPlugin) => ({
+	id: 'cmd_upload_feishu',
+	name: plugin.strings.cmd_upload_feishu,
+	icon: 'cloud-upload',
+	callback: async () => {
+		await plugin.feishu.uploadCurrentNote();
+	}
+});
+
+const cmd_feishu_pick = (plugin: NoteSyncPlugin) => ({
+	id: 'cmd_feishu_pick',
+	name: plugin.strings.cmd_feishu_pick,
+	icon: 'folder-tree',
+	callback: async () => {
+		await plugin.feishu.pickDestination();
+	}
+});
+
+const cmd_feishu_test = (plugin: NoteSyncPlugin) => ({
+	id: 'cmd_feishu_test',
+	name: plugin.strings.cmd_feishu_test,
+	icon: 'wifi',
+	callback: async () => {
+		await plugin.feishu.testConnection();
+	}
+});
+
 const cmd_export_as_single_note = (plugin: NoteSyncPlugin) => ({
 	id: 'cmd_export_as_single_note',
 	name: plugin.strings.cmd_export_as_single_note,
@@ -326,6 +353,9 @@ const cmd_export_as_single_note = (plugin: NoteSyncPlugin) => ({
 const commandBuilders: Array<Function> = [
 	cmd_export_wxmp,
 	cmd_export_word,
+	cmd_upload_feishu,
+	cmd_feishu_pick,
+	cmd_feishu_test,
 ];
 
 const commandBuildersDesktop: Array<Function> = [
