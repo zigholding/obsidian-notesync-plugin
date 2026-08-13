@@ -27,42 +27,94 @@ interface LocalImage {
 }
 
 interface FeishuBinding {
+	Dest?: string;
 	SpaceId: string;
 	NodeToken: string;
 	ObjToken: string;
 }
 
+interface FeishuAccount {
+	name: string;
+	appId: string;
+	appSecret: string;
+	domain: string;
+}
+
+interface FeishuDest {
+	name: string;
+	account: FeishuAccount;
+	parentRaw: string;
+	spaceId: string;
+}
+
+interface ResolvedDest {
+	name: string;
+	account: FeishuAccount;
+	spaceId: string;
+	parentNode: string;
+}
+
 /** 通过飞书开放平台 API 将笔记上传到知识库（非剪贴板） */
 export class Feishu {
 	plugin: NoteSyncPlugin;
-	private token = '';
-	private tokenExpireAt = 0;
+	private tokens = new Map<string, { token: string; expireAt: number }>();
+	private currentAccount: FeishuAccount | null = null;
 
 	constructor(plugin: NoteSyncPlugin) {
 		this.plugin = plugin;
 	}
 
+	private useAccount(account: FeishuAccount) {
+		this.currentAccount = account;
+	}
+
 	async testConnection() {
 		try {
-			await this.getToken(true);
-			let spaces: WikiSpace[] = [];
-			try {
-				spaces = await this.listSpaces();
-			} catch {
-				spaces = [];
+			const dests = this.listDests();
+			const accounts = this.listAccounts();
+			if (!accounts.length) {
+				throw new Error(this.plugin.strings.notice_feishu_no_app);
 			}
-			const parent = this.resolveParentFromSettings();
-			if (parent) {
+
+			let dest: FeishuDest | undefined;
+			let account: FeishuAccount | undefined;
+			if (dests.length === 1) {
+				dest = dests[0];
+				account = dest.account;
+			} else if (dests.length > 1) {
+				dest = await this.plugin.easyapi.dialog_suggest(
+					dests.map((d) => d.name),
+					dests,
+					this.plugin.strings.prompt_feishu_dest
+				);
+				if (!dest) {
+					return;
+				}
+				account = dest.account;
+			} else if (accounts.length === 1) {
+				account = accounts[0];
+			} else {
+				account = await this.plugin.easyapi.dialog_suggest(
+					accounts.map((a) => a.name),
+					accounts,
+					this.plugin.strings.prompt_feishu_account
+				);
+				if (!account) {
+					return;
+				}
+			}
+
+			this.useAccount(account);
+			await this.getToken(true);
+
+			if (dest) {
 				try {
-					const node = await this.getNode(parent);
-					if (node.space_id && this.plugin.settings.feishu_space_id !== node.space_id) {
-						this.plugin.settings.feishu_space_id = node.space_id;
-						await this.plugin.saveSettings();
-					}
+					const resolved = await this.resolveDest(dest);
+					const node = await this.getNode(resolved.parentNode);
 					new Notice(
 						this.plugin.strings.notice_feishu_connected_node.replace(
 							'{name}',
-							node.title || node.node_token
+							`${dest.name} / ${node.title || node.node_token}`
 						),
 						6000
 					);
@@ -70,6 +122,13 @@ export class Feishu {
 				} catch {
 					/* fall through */
 				}
+			}
+
+			let spaces: WikiSpace[] = [];
+			try {
+				spaces = await this.listSpaces();
+			} catch {
+				spaces = [];
 			}
 			if (spaces.length) {
 				new Notice(
@@ -89,65 +148,80 @@ export class Feishu {
 
 	async pickDestination() {
 		try {
-			let spaces: WikiSpace[] = [];
-			try {
-				spaces = await this.listSpaces();
-			} catch {
-				spaces = [];
-			}
-			if (!spaces.length) {
-				const pasted = await this.plugin.easyapi.dialog_prompt(
-					this.plugin.strings.prompt_feishu_wiki_url
-				);
-				if (!pasted) {
-					return;
-				}
-				await this.saveDestinationFromInput(pasted);
-				return;
-			}
-			const space = await this.plugin.easyapi.dialog_suggest(
-				spaces.map((s) => s.name),
-				spaces,
-				this.plugin.strings.prompt_feishu_space
-			);
-			if (!space) {
-				return;
+			const accounts = this.listAccounts();
+			if (!accounts.length) {
+				throw new Error(this.plugin.strings.notice_feishu_no_app);
 			}
 
-			let parentToken = '';
-			let label = space.name;
-			while (true) {
-				const nodes = await this.listNodes(space.space_id, parentToken);
+			const dests = this.listDests();
+			type DestPick = { isNew: boolean; dest: FeishuDest | null };
+			const newItem: DestPick = { isNew: true, dest: null };
+			let chosen: DestPick | null = null;
+			if (!dests.length) {
+				chosen = newItem;
+			} else {
 				const labels = [
-					this.plugin.strings.item_feishu_use_here,
-					...nodes.map(
-						(n) => (n.has_child ? '📁 ' : '📄 ') + (n.title || n.node_token)
-					),
+					...dests.map((d) => d.name),
+					this.plugin.strings.item_feishu_new_dest,
 				];
-				const values: Array<{ use: boolean; node?: WikiNode }> = [
-					{ use: true },
-					...nodes.map((n) => ({ use: false, node: n })),
+				const values: DestPick[] = [
+					...dests.map((d) => ({ isNew: false, dest: d })),
+					newItem,
 				];
-				const pick = await this.plugin.easyapi.dialog_suggest(
+				chosen = await this.plugin.easyapi.dialog_suggest(
 					labels,
 					values,
-					label
+					this.plugin.strings.prompt_feishu_dest
 				);
-				if (!pick) {
-					return;
-				}
-				if (pick.use || !pick.node) {
-					break;
-				}
-				parentToken = pick.node.node_token;
-				label = pick.node.title || pick.node.node_token;
+			}
+			if (!chosen) {
+				return;
 			}
 
-			this.plugin.settings.feishu_space_id = space.space_id;
-			this.plugin.settings.feishu_parent_node = parentToken;
-			await this.plugin.saveSettings();
+			let destName = chosen.dest?.name || '';
+			let account = chosen.dest?.account;
+			if (chosen.isNew || !account) {
+				if (accounts.length === 1) {
+					account = accounts[0];
+				} else {
+					account = await this.plugin.easyapi.dialog_suggest(
+						accounts.map((a) => a.name),
+						accounts,
+						this.plugin.strings.prompt_feishu_account
+					);
+				}
+				if (!account) {
+					return;
+				}
+				const typed = await this.plugin.easyapi.dialog_prompt(
+					this.plugin.strings.prompt_feishu_dest_name
+				);
+				destName = String(typed || '').trim();
+				if (!destName) {
+					return;
+				}
+			}
+
+			if (!account || !destName) {
+				return;
+			}
+
+			this.useAccount(account);
+			const picked = await this.browseOrPasteParent();
+			if (!picked) {
+				return;
+			}
+			await this.persistDestMeta(destName, {
+				spaceId: picked.spaceId,
+				parentNode: picked.parentNode,
+				domain: picked.domain || account.domain,
+				account,
+			});
 			new Notice(
-				this.plugin.strings.notice_feishu_dest_ok.replace('{name}', label),
+				this.plugin.strings.notice_feishu_dest_ok.replace(
+					'{name}',
+					`${destName} / ${picked.label}`
+				),
 				5000
 			);
 		} catch (e) {
@@ -168,7 +242,7 @@ export class Feishu {
 			if (file instanceof TFolder) {
 				const dest = await this.ensureDestination();
 				new Notice(this.plugin.strings.notice_feishu_uploading, 3000);
-				const n = await this.uploadFolder(file, dest.spaceId, dest.parentNode);
+				const n = await this.uploadFolder(file, dest);
 				new Notice(
 					this.plugin.strings.notice_feishu_folder_ok.replace('{n}', String(n)),
 					6000
@@ -201,30 +275,28 @@ export class Feishu {
 
 	private async uploadFolder(
 		folder: TFolder,
-		spaceId: string,
-		parentNode: string
+		dest: ResolvedDest
 	): Promise<number> {
+		this.useAccount(dest.account);
 		const folderNode = await this.findOrCreateNode(
-			spaceId,
+			dest.spaceId,
 			folder.name,
-			parentNode
+			dest.parentNode
 		);
+		const childDest: ResolvedDest = {
+			...dest,
+			parentNode: folderNode.node_token,
+			spaceId: dest.spaceId,
+		};
 		let count = 0;
 		for (const child of folder.children) {
 			if (child instanceof TFolder) {
 				if (child.name.startsWith('.')) {
 					continue;
 				}
-				count += await this.uploadFolder(
-					child,
-					spaceId,
-					folderNode.node_token
-				);
+				count += await this.uploadFolder(child, childDest);
 			} else if (child instanceof TFile && child.extension === 'md') {
-				await this.uploadNote(child, {
-					spaceId,
-					parentNode: folderNode.node_token,
-				});
+				await this.uploadNote(child, childDest);
 				count += 1;
 			}
 		}
@@ -233,10 +305,24 @@ export class Feishu {
 
 	private async uploadNote(
 		tfile: TFile,
-		dest?: { spaceId: string; parentNode: string }
+		folderDest?: ResolvedDest
 	): Promise<string> {
-		const target = dest || (await this.ensureDestination());
 		const binding = this.readBinding(tfile);
+		const hint = this.readDestHint(tfile);
+		let session: ResolvedDest;
+		if (binding?.Dest) {
+			session = await this.chooseDest(binding.Dest);
+		} else if (hint) {
+			session = await this.chooseDest(hint);
+		} else if (binding?.NodeToken) {
+			session = await this.sessionForLegacyBinding(binding, folderDest);
+		} else if (folderDest) {
+			session = folderDest;
+		} else {
+			session = await this.ensureDestination();
+		}
+
+		this.useAccount(session.account);
 		let node: WikiNode | null = null;
 
 		if (binding?.ObjToken && binding.NodeToken) {
@@ -249,9 +335,9 @@ export class Feishu {
 
 		if (!node) {
 			node = await this.findOrCreateNode(
-				target.spaceId,
+				session.spaceId,
 				tfile.basename,
-				target.parentNode
+				session.parentNode
 			);
 		} else if (node.title !== tfile.basename) {
 			await this.api(
@@ -269,75 +355,418 @@ export class Feishu {
 		}
 
 		await this.writeBinding(tfile, {
+			Dest: session.name,
 			SpaceId: node.space_id,
 			NodeToken: node.node_token,
 			ObjToken: node.obj_token,
 		});
 
-		const domain = this.plugin.settings.feishu_domain.replace(/\/$/, '');
+		const domain = session.account.domain.replace(/\/$/, '');
 		return domain ? `${domain}/wiki/${node.node_token}` : '';
 	}
 
-	private resolveParentFromSettings(): string {
-		const raw = this.plugin.settings.feishu_parent_node.trim();
-		const parsed = this.parseWikiInput(raw);
-		return parsed.nodeToken || (raw.startsWith('http') ? '' : raw);
-	}
-
-	private async saveDestinationFromInput(input: string) {
-		const parsed = this.parseWikiInput(input);
-		if (parsed.domain) {
-			this.plugin.settings.feishu_domain = parsed.domain;
-		}
-		const token = parsed.nodeToken || input.trim();
-		if (!token) {
-			throw new Error(this.plugin.strings.notice_feishu_no_dest);
-		}
-		const node = await this.getNode(token);
-		this.plugin.settings.feishu_space_id = node.space_id;
-		this.plugin.settings.feishu_parent_node = node.node_token;
-		await this.plugin.saveSettings();
-		new Notice(
-			this.plugin.strings.notice_feishu_dest_ok.replace(
-				'{name}',
-				node.title || node.node_token
-			),
-			5000
-		);
-	}
-
-	private async ensureDestination(): Promise<{
+	private async browseOrPasteParent(): Promise<{
 		spaceId: string;
 		parentNode: string;
-	}> {
-		let spaceId = this.plugin.settings.feishu_space_id.trim();
-		let parentNode = this.plugin.settings.feishu_parent_node.trim();
-		const parsed = this.parseWikiInput(parentNode);
-		if (parsed.domain) {
-			this.plugin.settings.feishu_domain = parsed.domain;
+		domain?: string;
+		label: string;
+	} | null> {
+		let spaces: WikiSpace[] = [];
+		try {
+			spaces = await this.listSpaces();
+		} catch {
+			spaces = [];
 		}
-		if (parsed.spaceId && !spaceId) {
-			spaceId = parsed.spaceId;
+		if (!spaces.length) {
+			const pasted = await this.plugin.easyapi.dialog_prompt(
+				this.plugin.strings.prompt_feishu_wiki_url
+			);
+			if (!pasted) {
+				return null;
+			}
+			const parsed = this.parseWikiInput(pasted);
+			const token = parsed.nodeToken || pasted.trim();
+			if (!token) {
+				throw new Error(this.plugin.strings.notice_feishu_no_dest);
+			}
+			const node = await this.getNode(token);
+			return {
+				spaceId: node.space_id,
+				parentNode: node.node_token,
+				domain: parsed.domain,
+				label: node.title || node.node_token,
+			};
 		}
-		if (parsed.nodeToken) {
-			parentNode = parsed.nodeToken;
+
+		const space = await this.plugin.easyapi.dialog_suggest(
+			spaces.map((s) => s.name),
+			spaces,
+			this.plugin.strings.prompt_feishu_space
+		);
+		if (!space) {
+			return null;
+		}
+
+		let parentToken = '';
+		let label = space.name;
+		while (true) {
+			const nodes = await this.listNodes(space.space_id, parentToken);
+			const labels = [
+				this.plugin.strings.item_feishu_use_here,
+				...nodes.map(
+					(n) => (n.has_child ? '📁 ' : '📄 ') + (n.title || n.node_token)
+				),
+			];
+			const values: Array<{ use: boolean; node?: WikiNode }> = [
+				{ use: true },
+				...nodes.map((n) => ({ use: false, node: n })),
+			];
+			const pick = await this.plugin.easyapi.dialog_suggest(
+				labels,
+				values,
+				label
+			);
+			if (!pick) {
+				return null;
+			}
+			if (pick.use || !pick.node) {
+				break;
+			}
+			parentToken = pick.node.node_token;
+			label = pick.node.title || pick.node.node_token;
+		}
+		return {
+			spaceId: space.space_id,
+			parentNode: parentToken,
+			label,
+		};
+	}
+
+	private async ensureDestination(): Promise<ResolvedDest> {
+		return this.chooseDest();
+	}
+
+	private async chooseDest(preferredName?: string): Promise<ResolvedDest> {
+		const dests = this.listDests();
+		if (preferredName) {
+			const hit = dests.find((d) => d.name === preferredName);
+			if (!hit) {
+				throw new Error(
+					this.plugin.strings.notice_feishu_dest_missing.replace(
+						'{name}',
+						preferredName
+					)
+				);
+			}
+			return this.resolveDest(hit);
+		}
+		if (dests.length === 1) {
+			return this.resolveDest(dests[0]);
+		}
+		if (dests.length > 1) {
+			const pick = await this.plugin.easyapi.dialog_suggest(
+				dests.map((d) => d.name),
+				dests,
+				this.plugin.strings.prompt_feishu_dest
+			);
+			if (!pick) {
+				throw new Error(this.plugin.strings.notice_feishu_no_dest);
+			}
+			return this.resolveDest(pick);
+		}
+		await this.pickDestination();
+		const after = this.listDests();
+		if (!after.length) {
+			throw new Error(this.plugin.strings.notice_feishu_no_dest);
+		}
+		if (after.length === 1) {
+			return this.resolveDest(after[0]);
+		}
+		return this.chooseDest();
+	}
+
+	private async sessionForLegacyBinding(
+		binding: FeishuBinding,
+		folderDest?: ResolvedDest
+	): Promise<ResolvedDest> {
+		const dests = this.listDests();
+		const bySpace = dests.find((d) => d.spaceId && d.spaceId === binding.SpaceId);
+		if (bySpace) {
+			return this.resolveDest(bySpace);
+		}
+		for (const dest of dests) {
+			this.useAccount(dest.account);
+			try {
+				await this.getNode(binding.NodeToken);
+				return this.resolveDest(dest);
+			} catch {
+				/* try next account */
+			}
+		}
+		if (folderDest) {
+			return folderDest;
+		}
+		return this.ensureDestination();
+	}
+
+	private async resolveDest(dest: FeishuDest): Promise<ResolvedDest> {
+		this.useAccount(dest.account);
+		let parentNode = '';
+		let spaceId = dest.spaceId;
+		if (dest.parentRaw) {
+			const parsed = this.parseWikiInput(dest.parentRaw);
+			if (parsed.domain && !dest.account.domain) {
+				dest.account.domain = parsed.domain;
+			}
+			if (parsed.spaceId && !spaceId) {
+				spaceId = parsed.spaceId;
+			}
+			parentNode =
+				parsed.nodeToken ||
+				(dest.parentRaw.startsWith('http') ? '' : dest.parentRaw);
 		}
 		if (!spaceId && parentNode) {
 			const node = await this.getNode(parentNode);
 			spaceId = node.space_id;
-			this.plugin.settings.feishu_space_id = spaceId;
-			this.plugin.settings.feishu_parent_node = parentNode;
-			await this.plugin.saveSettings();
-		}
-		if (!spaceId) {
-			await this.pickDestination();
-			spaceId = this.plugin.settings.feishu_space_id.trim();
-			parentNode = this.plugin.settings.feishu_parent_node.trim();
+			await this.persistDestMeta(dest.name, {
+				spaceId,
+				parentNode,
+				domain: dest.account.domain,
+			});
 		}
 		if (!spaceId) {
 			throw new Error(this.plugin.strings.notice_feishu_no_dest);
 		}
-		return { spaceId, parentNode };
+		return {
+			name: dest.name,
+			account: dest.account,
+			spaceId,
+			parentNode,
+		};
+	}
+
+	private yamlField(raw: any, ...keys: string[]): string {
+		if (!raw || typeof raw !== 'object') {
+			return '';
+		}
+		for (const key of keys) {
+			const v = raw[key];
+			if (v != null && String(v).trim()) {
+				return String(v).trim();
+			}
+		}
+		return '';
+	}
+
+	private loadYamlObject(): Record<string, any> {
+		const raw = (this.plugin.settings.feishu_destinations || '').trim();
+		if (!raw) {
+			return {};
+		}
+		let parsed: unknown;
+		try {
+			parsed = this.plugin.easyapi.editor.yamljs.load(raw);
+		} catch {
+			throw new Error(this.plugin.strings.notice_feishu_yaml_bad);
+		}
+		if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
+			throw new Error(this.plugin.strings.notice_feishu_yaml_bad);
+		}
+		return parsed as Record<string, any>;
+	}
+
+	private listAccounts(): FeishuAccount[] {
+		const cfg = this.loadYamlObject();
+		const out: FeishuAccount[] = [];
+		for (const [name, raw] of Object.entries(cfg)) {
+			const appId = this.yamlField(raw, 'app_id', 'appId');
+			const appSecret = this.yamlField(raw, 'app_secret', 'appSecret');
+			if (!appId || !appSecret) {
+				continue;
+			}
+			out.push({
+				name,
+				appId,
+				appSecret,
+				domain: this.yamlField(raw, 'domain').replace(/\/$/, ''),
+			});
+		}
+		const legacy = this.legacyAccount();
+		if (legacy && !out.some((a) => a.appId === legacy.appId)) {
+			out.push(legacy);
+		}
+		return out;
+	}
+
+	private listDests(): FeishuDest[] {
+		const cfg = this.loadYamlObject();
+		const accounts = this.listAccounts();
+		const byName = new Map(accounts.map((a) => [a.name, a]));
+		const byAppId = new Map(accounts.map((a) => [a.appId, a]));
+		const out: FeishuDest[] = [];
+		for (const [name, raw] of Object.entries(cfg)) {
+			const parentRaw = this.yamlField(raw, 'parent', 'parent_node');
+			const spaceId = this.yamlField(raw, 'space_id', 'spaceId');
+			if (!parentRaw && !spaceId) {
+				continue;
+			}
+			const ref = this.yamlField(raw, 'account');
+			let account = ref ? byName.get(ref) : undefined;
+			if (!account) {
+				account = byName.get(name);
+			}
+			if (!account) {
+				const appId = this.yamlField(raw, 'app_id', 'appId');
+				if (appId) {
+					account = byAppId.get(appId);
+				}
+			}
+			if (!account) {
+				continue;
+			}
+			out.push({ name, account, parentRaw, spaceId });
+		}
+		if (!out.length) {
+			const legacy = this.legacyDest();
+			if (legacy) {
+				out.push(legacy);
+			}
+		}
+		return out;
+	}
+
+	private legacyAccount(): FeishuAccount | null {
+		const appId = (this.plugin.settings.feishu_app_id || '').trim();
+		const appSecret = (this.plugin.settings.feishu_app_secret || '').trim();
+		if (!appId || !appSecret) {
+			return null;
+		}
+		return {
+			name: this.plugin.strings.item_feishu_legacy_dest,
+			appId,
+			appSecret,
+			domain: (this.plugin.settings.feishu_domain || '').trim().replace(/\/$/, ''),
+		};
+	}
+
+	private legacyDest(): FeishuDest | null {
+		const account = this.legacyAccount();
+		if (!account) {
+			return null;
+		}
+		const parentRaw = (this.plugin.settings.feishu_parent_node || '').trim();
+		const spaceId = (this.plugin.settings.feishu_space_id || '').trim();
+		if (!parentRaw && !spaceId) {
+			return null;
+		}
+		return {
+			name: this.plugin.strings.item_feishu_legacy_dest,
+			account,
+			parentRaw,
+			spaceId,
+		};
+	}
+
+	private yamlKey(s: string): string {
+		if (/^[\w.\u4e00-\u9fff-]+$/.test(s)) {
+			return s;
+		}
+		return JSON.stringify(s);
+	}
+
+	private yamlScalar(s: string): string {
+		if (/^-?\d+$/.test(s) || /[:#{}[\],&*?|>!%@`'"]/.test(s) || /\s/.test(s) || !s) {
+			return JSON.stringify(s);
+		}
+		if (['true', 'false', 'null', 'yes', 'no', 'on', 'off'].includes(s.toLowerCase())) {
+			return JSON.stringify(s);
+		}
+		return s;
+	}
+
+	private dumpYaml(cfg: Record<string, any>): string {
+		const order = ['account', 'app_id', 'app_secret', 'domain', 'parent', 'space_id'];
+		const chunks: string[] = [];
+		for (const [name, raw] of Object.entries(cfg)) {
+			if (!raw || typeof raw !== 'object' || Array.isArray(raw)) {
+				continue;
+			}
+			const lines = [`${this.yamlKey(name)}:`];
+			const seen = new Set<string>();
+			for (const key of order) {
+				if (raw[key] == null || String(raw[key]).trim() === '') {
+					continue;
+				}
+				lines.push(`  ${key}: ${this.yamlScalar(String(raw[key]).trim())}`);
+				seen.add(key);
+			}
+			for (const [key, value] of Object.entries(raw)) {
+				if (seen.has(key) || value == null || String(value).trim() === '') {
+					continue;
+				}
+				if (typeof value === 'object') {
+					continue;
+				}
+				lines.push(`  ${key}: ${this.yamlScalar(String(value).trim())}`);
+			}
+			chunks.push(lines.join('\n'));
+		}
+		return chunks.join('\n\n') + (chunks.length ? '\n' : '');
+	}
+
+	private async persistDestMeta(
+		name: string,
+		meta: {
+			spaceId?: string;
+			parentNode?: string;
+			domain?: string;
+			account?: FeishuAccount;
+		}
+	) {
+		const cfg = this.loadYamlObject();
+		if (!cfg[name] || typeof cfg[name] !== 'object' || Array.isArray(cfg[name])) {
+			cfg[name] = {};
+		}
+		if (meta.account) {
+			const accName = meta.account.name;
+			const accBlock = cfg[accName];
+			const accHasCreds =
+				accBlock &&
+				typeof accBlock === 'object' &&
+				this.yamlField(accBlock, 'app_id', 'appId');
+			if (!accHasCreds) {
+				cfg[accName] = {
+					...(accBlock && typeof accBlock === 'object' ? accBlock : {}),
+					app_id: meta.account.appId,
+					app_secret: meta.account.appSecret,
+				};
+				if (meta.account.domain) {
+					cfg[accName].domain = meta.account.domain;
+				}
+			}
+			if (accName !== name) {
+				cfg[name].account = accName;
+			} else if (!this.yamlField(cfg[name], 'app_id', 'appId')) {
+				cfg[name].app_id = meta.account.appId;
+				cfg[name].app_secret = meta.account.appSecret;
+			}
+		}
+		if (meta.spaceId) {
+			cfg[name].space_id = meta.spaceId;
+		}
+		if (meta.parentNode) {
+			const domain = (meta.domain || cfg[name].domain || '').replace(/\/$/, '');
+			cfg[name].parent = domain
+				? `${domain}/wiki/${meta.parentNode}`
+				: meta.parentNode;
+		}
+		if (meta.domain && !cfg[name].account) {
+			cfg[name].domain = meta.domain.replace(/\/$/, '');
+		} else if (meta.domain && cfg[name].account && cfg[cfg[name].account]) {
+			cfg[cfg[name].account].domain = meta.domain.replace(/\/$/, '');
+		}
+		this.plugin.settings.feishu_destinations = this.dumpYaml(cfg);
+		await this.plugin.saveSettings();
 	}
 
 	private async findOrCreateNode(
@@ -642,6 +1071,12 @@ export class Feishu {
 		return { markdown: ctx.trim() || tfile.basename, images };
 	}
 
+	private readDestHint(tfile: TFile): string {
+		const fm = this.plugin.app.metadataCache.getFileCache(tfile)?.frontmatter;
+		const dest = fm?.[this.plugin.yaml]?.Feishu?.Dest;
+		return dest ? String(dest).trim() : '';
+	}
+
 	private readBinding(tfile: TFile): FeishuBinding | null {
 		const fm = this.plugin.app.metadataCache.getFileCache(tfile)?.frontmatter;
 		const item = fm?.[this.plugin.yaml]?.Feishu;
@@ -738,28 +1173,29 @@ export class Feishu {
 	}
 
 	private async getToken(force = false): Promise<string> {
-		if (!force && this.token && Date.now() < this.tokenExpireAt) {
-			return this.token;
-		}
-		const appId = this.plugin.settings.feishu_app_id.trim();
-		const appSecret = this.plugin.settings.feishu_app_secret.trim();
-		if (!appId || !appSecret) {
+		const account = this.currentAccount;
+		if (!account?.appId || !account.appSecret) {
 			throw new Error(this.plugin.strings.notice_feishu_no_app);
+		}
+		const cached = this.tokens.get(account.appId);
+		if (!force && cached && Date.now() < cached.expireAt) {
+			return cached.token;
 		}
 		const res = await requestUrl({
 			url: `${FEISHU_API}/auth/v3/tenant_access_token/internal`,
 			method: 'POST',
 			headers: { 'Content-Type': 'application/json; charset=utf-8' },
-			body: JSON.stringify({ app_id: appId, app_secret: appSecret }),
+			body: JSON.stringify({ app_id: account.appId, app_secret: account.appSecret }),
 			throw: false,
 		});
 		const json = this.parseJson(res);
 		if (res.status >= 400 || json?.code) {
 			throw new Error(json?.msg || `token HTTP ${res.status}`);
 		}
-		this.token = json.tenant_access_token;
-		this.tokenExpireAt = Date.now() + Math.max(0, (json.expire || 7200) - 300) * 1000;
-		return this.token;
+		const token = json.tenant_access_token;
+		const expireAt = Date.now() + Math.max(0, (json.expire || 7200) - 300) * 1000;
+		this.tokens.set(account.appId, { token, expireAt });
+		return token;
 	}
 
 	private async api(method: string, path: string, body?: unknown) {

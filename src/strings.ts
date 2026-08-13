@@ -210,75 +210,27 @@ export class Strings{
         }
     }
 
-    get setting_feishu_app_id(){
+    get setting_feishu_destinations(){
         if(this.language=='zh'){
-            return '飞书 App ID';
+            return '飞书位置';
         }else{
-            return 'Feishu App ID';
+            return 'Feishu destinations';
         }
     }
 
-    get setting_feishu_app_secret(){
+    get setting_feishu_destinations_desc(){
         if(this.language=='zh'){
-            return '飞书 App Secret';
+            return 'YAML：每个名称是一个上传位置。可写完整凭证，或用 account 引用另一个位置的 App。同一应用的多个知识库 / 父节点写成多个位置即可。每个父节点都要「添加文档应用」。';
         }else{
-            return 'Feishu App Secret';
+            return 'YAML: each name is an upload destination. Put credentials inline, or set account to reuse another block’s App. Multiple wikis/parents are multiple destinations. Add the document app on each parent page.';
         }
     }
 
-    get setting_feishu_app_desc(){
+    get setting_feishu_destinations_ph(){
         if(this.language=='zh'){
-            return '企业自建应用凭证。需开通 wiki / docx / convert / drive 权限，并在目标文档上「添加文档应用」。';
+            return '公司:\n  app_id: cli_xxx\n  app_secret: \n  domain: https://xxx.feishu.cn\n\n工作:\n  account: 公司\n  parent: https://xxx.feishu.cn/wiki/wikcn...\n\n产品:\n  account: 公司\n  parent: https://xxx.feishu.cn/wiki/wikcn...';
         }else{
-            return 'Custom app credentials. Enable wiki / docx / convert / drive scopes, then add the app on the target wiki page.';
-        }
-    }
-
-    get setting_feishu_domain(){
-        if(this.language=='zh'){
-            return '飞书域名';
-        }else{
-            return 'Feishu domain';
-        }
-    }
-
-    get setting_feishu_domain_desc(){
-        if(this.language=='zh'){
-            return '用于生成文档链接，例如 https://xxx.feishu.cn ；粘贴知识库 URL 时会自动填写。';
-        }else{
-            return 'Used to build document links, e.g. https://xxx.feishu.cn. Filled automatically from a Wiki URL.';
-        }
-    }
-
-    get setting_feishu_space(){
-        if(this.language=='zh'){
-            return '知识空间 ID';
-        }else{
-            return 'Wiki space ID';
-        }
-    }
-
-    get setting_feishu_space_desc(){
-        if(this.language=='zh'){
-            return '可手动填写，或点击「选择知识库位置」浏览。';
-        }else{
-            return 'Enter manually, or use Pick Wiki location.';
-        }
-    }
-
-    get setting_feishu_parent(){
-        if(this.language=='zh'){
-            return '父节点';
-        }else{
-            return 'Parent node';
-        }
-    }
-
-    get setting_feishu_parent_desc(){
-        if(this.language=='zh'){
-            return '知识库页面 wiki 链接或节点 token。在该页右上角 ··· → 更多 → 添加文档应用后，把链接贴到这里。';
-        }else{
-            return 'Wiki page URL or node token. On that page use ··· → More → Add document app, then paste the URL here.';
+            return 'company:\n  app_id: cli_xxx\n  app_secret: \n  domain: https://xxx.feishu.cn\n\nwork:\n  account: company\n  parent: https://xxx.feishu.cn/wiki/wikcn...\n\nproduct:\n  account: company\n  parent: https://xxx.feishu.cn/wiki/wikcn...';
         }
     }
 
@@ -290,11 +242,67 @@ export class Strings{
         }
     }
 
+    get prompt_feishu_dest(){
+        if(this.language=='zh'){
+            return '选择飞书上传位置';
+        }else{
+            return 'Select Feishu destination';
+        }
+    }
+
+    get prompt_feishu_account(){
+        if(this.language=='zh'){
+            return '选择飞书应用';
+        }else{
+            return 'Select Feishu app';
+        }
+    }
+
+    get prompt_feishu_dest_name(){
+        if(this.language=='zh'){
+            return '保存为位置名称（例如：工作知识库）';
+        }else{
+            return 'Save as destination name (e.g. Work wiki)';
+        }
+    }
+
+    get item_feishu_new_dest(){
+        if(this.language=='zh'){
+            return '＋ 新建位置';
+        }else{
+            return '+ New destination';
+        }
+    }
+
+    get item_feishu_legacy_dest(){
+        if(this.language=='zh'){
+            return '默认';
+        }else{
+            return 'Default';
+        }
+    }
+
+    get notice_feishu_yaml_bad(){
+        if(this.language=='zh'){
+            return '飞书位置 YAML 无法解析，请检查缩进和冒号';
+        }else{
+            return 'Feishu destinations YAML could not be parsed. Check indentation and colons.';
+        }
+    }
+
+    get notice_feishu_dest_missing(){
+        if(this.language=='zh'){
+            return '笔记绑定的飞书位置「{name}」已不在设置中，请补回该位置或删掉 YAML 里的 Feishu.Dest 后重试';
+        }else{
+            return 'Bound Feishu destination "{name}" is no longer in settings. Restore it, or remove Feishu.Dest from the note YAML and retry.';
+        }
+    }
+
     get notice_feishu_no_app(){
         if(this.language=='zh'){
-            return '请先在设置中填写飞书 App ID 和 App Secret';
+            return '请先在设置的飞书位置 YAML 中填写至少一个 App ID 和 App Secret';
         }else{
-            return 'Set Feishu App ID and App Secret in plugin settings first.';
+            return 'Add at least one App ID and App Secret in the Feishu destinations YAML.';
         }
     }
 
@@ -324,9 +332,9 @@ export class Strings{
 
     get notice_feishu_no_space(){
         if(this.language=='zh'){
-            return '凭证可用，但未识别到知识库节点。请在一篇知识库文档右上角 ··· → 更多 → 添加文档应用，再把该页链接填进「父节点」。';
+            return '凭证可用，但未识别到知识库节点。请在设置里为该位置填写 parent（已添加文档应用的 wiki 链接），或点「选择知识库位置」。';
         }else{
-            return 'Credentials work, but no Wiki node is set. On a wiki page use ··· → More → Add document app, then paste that page URL into Parent node.';
+            return 'Credentials work, but no Wiki node is set. Add a parent wiki URL (where the app is a collaborator) to that destination, or use Pick Wiki location.';
         }
     }
 

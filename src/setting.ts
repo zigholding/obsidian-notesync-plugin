@@ -9,10 +9,16 @@ export interface MySettings {
 	vaultDir:string;
 	git_repo:string;
 	wxmp_config:string;
+	feishu_destinations:string;
+	/** @deprecated 已并入 feishu_destinations，读取时仍作回退 */
 	feishu_app_id:string;
+	/** @deprecated */
 	feishu_app_secret:string;
+	/** @deprecated */
 	feishu_space_id:string;
+	/** @deprecated */
 	feishu_parent_node:string;
+	/** @deprecated */
 	feishu_domain:string;
 }
 
@@ -27,6 +33,7 @@ h3: ob 公众号标题 hx 样式
 p code: ob 公众号行内代码样式
 li code: ob 公众号行内代码样式
 `.trim(),
+	feishu_destinations: '',
 	feishu_app_id: '',
 	feishu_app_secret: '',
 	feishu_space_id: '',
@@ -104,69 +111,19 @@ export class NoteSyncSettingTab extends PluginSettingTab {
 			.setHeading();
 
 		new Setting(containerEl)
-			.setName(this.plugin.strings.setting_feishu_app_id)
-			.setDesc(this.plugin.strings.setting_feishu_app_desc)
-			.addText(text => text
-				.setPlaceholder('cli_xxx')
-				.setValue(this.plugin.settings.feishu_app_id)
-				.onChange(async (value) => {
-					this.plugin.settings.feishu_app_id = value.trim();
-					await this.plugin.saveSettings();
-				}));
-
-		new Setting(containerEl)
-			.setName(this.plugin.strings.setting_feishu_app_secret)
-			.addText(text => {
-				text.inputEl.type = 'password';
-				text.setValue(this.plugin.settings.feishu_app_secret)
+			.setName(this.plugin.strings.setting_feishu_destinations)
+			.setDesc(this.plugin.strings.setting_feishu_destinations_desc)
+			.addTextArea(text => {
+				text.inputEl.rows = 14;
+				text.inputEl.style.width = '100%';
+				text.inputEl.style.minWidth = '280px';
+				text.setPlaceholder(this.plugin.strings.setting_feishu_destinations_ph)
+					.setValue(this.plugin.settings.feishu_destinations)
 					.onChange(async (value) => {
-						this.plugin.settings.feishu_app_secret = value.trim();
+						this.plugin.settings.feishu_destinations = value;
 						await this.plugin.saveSettings();
 					});
 			});
-
-		new Setting(containerEl)
-			.setName(this.plugin.strings.setting_feishu_domain)
-			.setDesc(this.plugin.strings.setting_feishu_domain_desc)
-			.addText(text => text
-				.setPlaceholder('https://xxx.feishu.cn')
-				.setValue(this.plugin.settings.feishu_domain)
-				.onChange(async (value) => {
-					this.plugin.settings.feishu_domain = value.trim();
-					await this.plugin.saveSettings();
-				}));
-
-		new Setting(containerEl)
-			.setName(this.plugin.strings.setting_feishu_space)
-			.setDesc(this.plugin.strings.setting_feishu_space_desc)
-			.addText(text => text
-				.setValue(this.plugin.settings.feishu_space_id)
-				.onChange(async (value) => {
-					this.plugin.settings.feishu_space_id = value.trim();
-					await this.plugin.saveSettings();
-				}));
-
-		new Setting(containerEl)
-			.setName(this.plugin.strings.setting_feishu_parent)
-			.setDesc(this.plugin.strings.setting_feishu_parent_desc)
-			.addText(text => text
-				.setPlaceholder('https://xxx.feishu.cn/wiki/wikcn...')
-				.setValue(this.plugin.settings.feishu_parent_node)
-				.onChange(async (value) => {
-					const parsed = this.plugin.feishu.parseWikiInput(value);
-					if (parsed.domain) {
-						this.plugin.settings.feishu_domain = parsed.domain;
-					}
-					if (parsed.spaceId) {
-						this.plugin.settings.feishu_space_id = parsed.spaceId;
-					}
-					if (parsed.nodeToken) {
-						this.plugin.settings.feishu_parent_node = parsed.nodeToken;
-					} else if (!parsed.spaceId) {
-						this.plugin.settings.feishu_parent_node = value.trim();
-					}
-					await this.plugin.saveSettings();
-				}));
 
 		new Setting(containerEl)
 			.setName(this.plugin.strings.setting_feishu_actions)

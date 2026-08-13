@@ -136,17 +136,17 @@ With NoteChain installed, notes are sorted by the note chain.
 通过飞书开放平台 API 把笔记写成知识库文档，不经过复制粘贴。  
 Upload notes into Feishu Wiki as native documents via Open API (no clipboard).
 
-1. 在[飞书开放平台](https://open.feishu.cn)创建企业自建应用，填写 App ID / App Secret；  
-    Create a custom app on the [Feishu Open Platform](https://open.feishu.cn) and fill in App ID / App Secret;
-2. 开通权限：`wiki:wiki`、`docx:document`、`docx:document.block:convert`、`drive:drive`，发布应用；在目标知识库文档上「添加文档应用」，把该页链接填进父节点；  
-    Enable `wiki:wiki`, `docx:document`, `docx:document.block:convert`, `drive:drive`; publish the app; add the app on a Wiki page and paste that page URL as the parent node;
-3. 在设置里「测试连接」，再「选择知识库位置」（或粘贴 wiki 链接）；  
-    Use **Test connection**, then **Pick Wiki location** (or paste a wiki URL);
-4. 命令 `上传当前笔记到飞书知识库`，或右键文件/文件夹 `上传到飞书知识库`。  
-    Run `Upload current note to Feishu Wiki`, or right-click a file/folder.
+1. 在[飞书开放平台](https://open.feishu.cn)创建企业自建应用；  
+    Create a custom app on the [Feishu Open Platform](https://open.feishu.cn);
+2. 开通权限：`wiki:wiki`、`docx:document`、`docx:document.block:convert`、`drive:drive`，发布应用；在每个目标知识库文档上「添加文档应用」；  
+    Enable `wiki:wiki`, `docx:document`, `docx:document.block:convert`, `drive:drive`; publish the app; add the app on each target Wiki page;
+3. 在设置的飞书位置 YAML 里配置账户与 `parent`（同一应用多个父节点用 `account` 引用）；「测试连接」/「选择知识库位置」；  
+    Configure accounts and `parent` URLs in the Feishu destinations YAML (`account` reuses credentials). Use **Test connection** / **Pick Wiki location**;
+4. 命令 `上传当前笔记到飞书知识库`，或右键文件/文件夹 `上传到飞书知识库`。多个位置时会先选择。  
+    Run `Upload current note to Feishu Wiki`, or right-click a file/folder. Pick a destination when more than one is configured.
 
-再次上传同一篇笔记会覆盖飞书端内容（映射写在 frontmatter `note-sync.Feishu`）。文件夹会按目录在知识库中创建对应节点。本地图片会一并上传。  
-Re-upload overwrites the same Wiki doc (binding is stored in `note-sync.Feishu`). Folders are mirrored as Wiki nodes. Local images are uploaded.
+再次上传同一篇笔记会覆盖飞书端内容（映射写在 frontmatter `note-sync.Feishu`，含位置名 `Dest`）。文件夹会按目录在知识库中创建对应节点。本地图片会一并上传。  
+Re-upload overwrites the same Wiki doc (binding is stored in `note-sync.Feishu`, including destination name `Dest`). Folders are mirrored as Wiki nodes. Local images are uploaded.
 
 详细步骤见飞书同步教程。  
 See the Feishu Wiki sync tutorial for the full guide.
@@ -193,5 +193,5 @@ You can also preset the path for quick download when fetching files:
 > YAML mapping of elements to Templater style notes; leave empty for built-in styles. See the WeChat formatting tutorial.
 
 > [!NOTE]+ Feishu Wiki / 飞书知识库  
-> 填写企业自建应用的 App ID / App Secret；在目标知识库文档上「添加文档应用」，把该页链接填进父节点。凭证保存在本地 `data.json`，不要公开。详见飞书同步教程。  
-> Set the custom app App ID / App Secret. Add the app on a Wiki page and paste that page URL as the parent node. Credentials stay in local `data.json` — do not publish it. See the Feishu Wiki sync tutorial.
+> YAML 配置多个上传位置：每套 App 凭证、每个知识库、每个父节点都可以是一个位置。同一应用用 `account` 引用，避免重复写 Secret。凭证保存在本地 `data.json`，不要公开。详见飞书同步教程。  
+> YAML destinations: each app, wiki, and parent node can be its own named location. Reuse credentials with `account`. Credentials stay in local `data.json` — do not publish it. See the Feishu Wiki sync tutorial.
