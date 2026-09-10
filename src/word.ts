@@ -1,4 +1,4 @@
-import { App, TFile } from 'obsidian';
+import { App, SectionCache, TFile } from 'obsidian';
 import { marked } from 'marked';
 import NoteSyncPlugin from '../main';
 
@@ -42,14 +42,17 @@ export class Word {
 		};
 	}
 
-	async section_to_word(section: any, sec: string) {
+	async section_to_word(section: SectionCache, sec: string) {
 		if (section.type == 'yaml') {
 			return null;
 		}
 		if (section.type == 'html') {
 			return await this.html_to_word(sec);
 		}
-		let html = this.marked.parse(sec) as string;
+		let html = this.marked.parse(sec);
+		if (typeof html !== 'string') {
+			html = await html;
+		}
 		return await this.html_to_word(html);
 	}
 
@@ -155,13 +158,13 @@ export class Word {
 
 		for (let tag in tagStyle) {
 			doc.querySelectorAll(tag).forEach((el) => {
-				this.merge_style(el as HTMLElement, tagStyle[tag]);
+				this.merge_style(el, tagStyle[tag]);
 			});
 		}
 
 		// 嵌套列表再收一点，避免层层叠加过宽
 		doc.querySelectorAll('ul ul, ol ol, ul ol, ol ul').forEach((el) => {
-			this.merge_style(el as HTMLElement, 'margin-left:0cm;padding-left:14.0pt;');
+			this.merge_style(el, 'margin-left:0cm;padding-left:14.0pt;');
 		});
 
 		// 行内 code（排除 pre > code，避免覆盖代码块样式）
@@ -169,7 +172,7 @@ export class Word {
 			if (el.closest('pre')) {
 				return;
 			}
-			this.merge_style(el as HTMLElement, styles.code);
+			this.merge_style(el, styles.code);
 		});
 
 		// marked 松散列表里的 <p> 在 Word 中易多出空行
@@ -184,21 +187,23 @@ export class Word {
 
 		// checkbox 任务列表 → 字符，Word 不识别 input
 		doc.querySelectorAll('li input[type="checkbox"]').forEach((el) => {
-			let checked =
-				(el as HTMLInputElement).checked || el.hasAttribute('checked');
+			if (!(el instanceof HTMLInputElement)) {
+				return;
+			}
+			let checked = el.checked || el.hasAttribute('checked');
 			let mark = doc.createTextNode((checked ? '☑' : '☐') + ' ');
 			el.replaceWith(mark);
 		});
 
 		// 映射到 Word 内置「正文」，避免变成「普通（网站）」
 		doc.querySelectorAll('p, div, li').forEach((el) => {
-			(el as HTMLElement).className = 'MsoNormal';
+			el.className = 'MsoNormal';
 		});
 
 		return doc.body.innerHTML;
 	}
 
-	merge_style(el: HTMLElement, css: string) {
+	merge_style(el: Element, css: string) {
 		let prev = el.getAttribute('style') || '';
 		el.setAttribute('style', (prev ? prev.replace(/;?\s*$/, ';') : '') + css);
 	}

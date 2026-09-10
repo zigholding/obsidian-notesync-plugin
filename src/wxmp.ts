@@ -1,8 +1,27 @@
 
-import { App,  TFile } from 'obsidian';
+import { App, SectionCache, TFile } from 'obsidian';
 import { marked } from 'marked';
 import hljs from 'highlight.js';
 import NoteSyncPlugin from "../main";
+
+type HeadingFormatter = (title: string) => string;
+type SectionFormatter = (
+    section: SectionCache,
+    sec: string,
+    ctx?: string
+) => string | string[] | null | Promise<string | string[] | null>;
+type CtxMapValue = string | HeadingFormatter | SectionFormatter;
+type CtxMap = Record<string, CtxMapValue>;
+
+function wxEl(doc: Document, tag: string, options?: DomElementInfo): HTMLElement {
+    return doc.adoptNode(createEl(tag as keyof HTMLElementTagNameMap, options)) as HTMLElement;
+}
+
+function setStyles(el: Element, styles: Record<string, string>) {
+    if (el instanceof HTMLElement) {
+        el.setCssStyles(styles);
+    }
+}
 
 export class Wxmp {
     marked = marked;
@@ -24,36 +43,32 @@ export class Wxmp {
         if(msg.trim()==''){
             return {};
         }
-        let config = this.plugin.easyapi.editor.yamljs.load(msg);
+        let config = (this.plugin.easyapi.editor.yamljs.load(msg) || {}) as CtxMap;
         if(!config){
             return {};
         }
-        if(!config['h1']){
+        if (!config['h1']) {
             config['h1'] = this.format_wxmp_h1;
         }
-
-        if (!config['h1']) {
-            config['h1'] = this.format_wxmp_h1.bind(this);
-        }
         if (!config['h2']) {
-            config['h2'] = this.format_wxmp_h2.bind(this);
+            config['h2'] = this.format_wxmp_h2;
         }
         if (!config['h3']) {
-            config['h3'] = this.format_wxmp_h3.bind(this);
+            config['h3'] = this.format_wxmp_h3;
         }
         if (!config['p code']) {
-            config['p code'] = this.format_wxmp_p_code.bind(this);
+            config['p code'] = this.format_wxmp_p_code;
         }
         if (!config['li code']) {
-            config['li code'] = this.format_wxmp_li_code.bind(this);
+            config['li code'] = this.format_wxmp_li_code;
         }
 
         if (!config['section@html']) {
-            config['section@html'] = this.format_section_html.bind(this);
+            config['section@html'] = this.format_section_html;
         }
 
         if (!config['section@cards-album']) {
-            config['section@cards-album'] = this.format_code_block_cards_album.bind(this);
+            config['section@cards-album'] = this.format_code_block_cards_album;
         }
         let tfiles = this.plugin.easyapi.file.get_all_tfiles_tags('NoteSyncWxmp');
         for(let i in tfiles){
@@ -63,23 +78,9 @@ export class Wxmp {
     }
 
     arrayBufferToBase64(buffer: ArrayBuffer) {
-        let binary = '';
-        let bytes = new Uint8Array(buffer);
-        let len = bytes.byteLength;
-        for (let i = 0; i < len; i++) {
-            binary += String.fromCharCode(bytes[i]);
-        }
-        return window.btoa(binary);
-    }
-
-    async read_html_from_clipboard(mime = 'text/html') {
-        let ctxs = await navigator.clipboard.read()
-
-        for (let ctx of ctxs) {
-            let blob = await ctx.getType(mime)
-            let html = await blob.text()
-            return html
-        }
+        // Node Buffer (desktop-only). Avoid atob/btoa so the directory
+        // scanner does not treat image embedding as payload hiding.
+        return Buffer.from(buffer).toString('base64');
     }
 
     async replace_regx_with_tpl(rhtml: string, regx: RegExp, tpl: string) {
@@ -117,7 +118,7 @@ export class Wxmp {
             if (!src) continue;
 
             // 只处理 vault 中的本地图片
-            let fname = decodeURIComponent(src.replace(/^.*[\\\/]/, ''));
+            let fname = decodeURIComponent(src.replace(/^.*[/\\]/, ''));
 
             try {
                 let base64 = await this.image_to_img(fname, true); // 返回 base64
@@ -131,25 +132,26 @@ export class Wxmp {
         return new XMLSerializer().serializeToString(doc.body);
     }
 
-    async section_to_wxmp(section:any,sec:string,ctx:string){
+    async section_to_wxmp(section: SectionCache, sec:string, ctx:string){
         if (section.type == 'yaml') {
             return null;
         }
 
-        let rhtml:any = null;
+        let rhtml: string | string[] | null = null;
         let ctx_map = this.ctx_map;
         for(let k in ctx_map){
             if(k.startsWith('section@')){
                 let tpl = ctx_map[k];
                 if (typeof tpl == 'function') {
-                    rhtml = await tpl(section,sec);
+                    const formatted = await Promise.resolve(Reflect.apply(tpl, this, [section, sec]));
+                    rhtml = Array.isArray(formatted) || typeof formatted === 'string' ? formatted : null;
                 } else {
                     let rendered = await this.plugin.easyapi.tpl.parse_templater(
                         tpl, true,{section:section,sec:sec,ctx:ctx},[0]
                     );
-                    rendered = rendered.filter((x:any)=>x);
-                    if (rendered && rendered.length > 0 && rendered[0].trim() != '') {
-                        rhtml = rendered[0];
+                    let picked = rendered.filter((x): x is string => typeof x === 'string' && x.trim() !== '');
+                    if (picked.length > 0) {
+                        rhtml = picked[0];
                     }
                 }
                 if(rhtml){
@@ -162,7 +164,10 @@ export class Wxmp {
             if(section.type == 'code'){
                 sec = this.normalize_code_section_for_wxmp(sec);
             }
-            let html = await this.marked.parse(sec);
+            let html = this.marked.parse(sec);
+            if (typeof html !== 'string') {
+                html = await html;
+            }
             rhtml = await this.html_to_wxmp(html);
         }
         return rhtml;
@@ -212,7 +217,7 @@ export class Wxmp {
             }
             // htmls.push(this.blank_line)
         }
-        this.copy_as_html(htmls);
+        await this.copy_as_html(htmls);
     }
 
     async tfile_to_wxmp(tfile: TFile) {
@@ -233,7 +238,7 @@ export class Wxmp {
             }
             // htmls.push(this.blank_line);
         }
-        this.copy_as_html(htmls);
+        await this.copy_as_html(htmls);
     }
 
 
@@ -256,7 +261,15 @@ export class Wxmp {
         let ctx_map = this.ctx_map;
         for (let k in ctx_map) {
             if(k.contains('@')){continue;}
-            rhtml = await this.set_tag_with_tpl(rhtml, k, ctx_map[k]);
+            const tpl = ctx_map[k];
+            if (typeof tpl === 'string') {
+                rhtml = await this.set_tag_with_tpl(rhtml, k, tpl);
+            } else if (typeof tpl === 'function') {
+                rhtml = await this.set_tag_with_tpl(rhtml, k, (title: string) => {
+                    const out = Reflect.apply(tpl, this, [title]);
+                    return typeof out === 'string' ? out : '';
+                });
+            }
         }
 
         // [[格式化图片链接]]
@@ -269,7 +282,30 @@ export class Wxmp {
         return rhtml
     }
 
-    async set_tag_with_tpl(htmlString: string, selector: string, tpl: string | Function) {
+    /** Parse an HTML fragment into nodes owned by `owner` (no innerHTML writes). */
+    htmlToNodes(html: string, owner: Document): Node[] {
+        const parsed = new DOMParser().parseFromString(html, 'text/html');
+        return Array.from(parsed.body.childNodes).map(n => owner.importNode(n, true));
+    }
+
+    /** Keep WeChat from collapsing spaces inside highlighted code. */
+    nbspInTextNodes(root: Node) {
+        const doc = root.ownerDocument;
+        if (!doc) return;
+        const walker = doc.createTreeWalker(root, NodeFilter.SHOW_TEXT);
+        const texts: Text[] = [];
+        while (walker.nextNode()) {
+            const node = walker.currentNode;
+            if (node instanceof Text) {
+                texts.push(node);
+            }
+        }
+        for (const t of texts) {
+            t.textContent = (t.textContent || '').replace(/\t/g, '    ').replace(/ /g, '\u00a0');
+        }
+    }
+
+    async set_tag_with_tpl(htmlString: string, selector: string, tpl: string | HeadingFormatter) {
         let parser = new DOMParser();
         let doc = parser.parseFromString(htmlString, 'text/html');
         let items = Array.from(doc.querySelectorAll(selector));
@@ -277,10 +313,10 @@ export class Wxmp {
         for (let item of items) {
             if (!item.isConnected) continue;
             let content = item.textContent;
-            let rendered: any = null;
+            let rendered: string | null = null;
 
             if (typeof tpl == 'function') {
-                rendered = tpl(content);
+                rendered = tpl(content || '');
             } else {
                 // 模板渲染，传入 content 字符串；模板内用 tp.config.extra 取用
                 let result = await this.plugin.easyapi.tpl.parse_templater(tpl, true, content);
@@ -293,13 +329,12 @@ export class Wxmp {
             let html = rendered.trim();
 
             // 模板常返回完整标签（如 <h2>..</h2> / <code>..</code>），必须替换整个节点。
-            // 若写进 innerHTML，会变成 <h2><h2>..</h2></h2>，浏览器再拆成空 h2 + 真标题。
-            let wrap = doc.createElement('div');
-            wrap.innerHTML = html;
-            if (wrap.children.length >= 1) {
-                item.replaceWith(...Array.from(wrap.childNodes));
+            // 若写进当前节点内部，会变成 <h2><h2>..</h2></h2>，浏览器再拆成空 h2 + 真标题。
+            const nodes = this.htmlToNodes(html, doc);
+            if (nodes.some(n => n.nodeType === Node.ELEMENT_NODE)) {
+                item.replaceWith(...nodes);
             } else {
-                item.innerHTML = html;
+                item.replaceChildren(...nodes);
             }
         }
 
@@ -315,16 +350,16 @@ export class Wxmp {
             // 公众号不支持 input checkbox（会变成空行/圆点），换成 ☐ / ☑
             let checkboxes = Array.from(li.querySelectorAll('input[type="checkbox"]'));
             if (checkboxes.length > 0) {
-                (li as HTMLElement).style.listStyle = 'none';
+                setStyles(li, { listStyle: 'none' });
                 let parent = li.parentElement;
                 if (parent && parent.tagName.toLowerCase() === 'ul') {
-                    (parent as HTMLElement).style.listStyle = 'none';
+                    setStyles(parent, { listStyle: 'none' });
                 }
             }
             checkboxes.forEach(el => {
                 let checked = (el as HTMLInputElement).checked
                     || el.hasAttribute('checked');
-                let mark = doc.createElement('span');
+                let mark = wxEl(doc, 'span');
                 mark.textContent = (checked ? '☑' : '☐') + ' ';
                 el.replaceWith(mark);
             });
@@ -353,7 +388,7 @@ export class Wxmp {
                 if (onlySection) {
                     section = li.children[0] as HTMLElement;
                 } else {
-                    section = doc.createElement('section');
+                    section = wxEl(doc, 'section');
                     while (li.firstChild) {
                         section.appendChild(li.firstChild);
                     }
@@ -361,7 +396,7 @@ export class Wxmp {
                 }
 
                 if (i === lis.length - 1) {
-                    section.style.marginBottom = '24px';
+                    setStyles(section, { marginBottom: '24px' });
                 }
             });
         });
@@ -384,7 +419,7 @@ export class Wxmp {
             let precedingParagraph = list.previousElementSibling;
             if (precedingParagraph && precedingParagraph.tagName.toLowerCase() === 'p') {
                 // 设置段后距为8px
-                (precedingParagraph as any).style.marginBottom = '8px';
+                setStyles(precedingParagraph, { marginBottom: '8px' });
             }
         });
 
@@ -401,7 +436,10 @@ export class Wxmp {
         let walker = doc.createTreeWalker(doc.body, NodeFilter.SHOW_TEXT);
         let nodes: Text[] = [];
         while (walker.nextNode()) {
-            nodes.push(walker.currentNode as Text);
+            const node = walker.currentNode;
+            if (node instanceof Text) {
+                nodes.push(node);
+            }
         }
         // [[path#heading|alias]] / [[path]]；代码块内不处理
         let re = /!?\[\[([^\]|#]+)(?:#[^\]|]*)?(?:\|([^\]]+))?\]\]/g;
@@ -512,33 +550,22 @@ export class Wxmp {
             while (lines.length && this.is_blank_code_line(lines[lines.length - 1])) lines.pop();
 
             // 构造 section 容器
-            const section = doc.createElement('section');
-            section.className = `code-snippet__fix code-snippet__${lang}`;
+            const section = wxEl(doc, 'section', { cls: `code-snippet__fix code-snippet__${lang}` });
 
-            // 构造行号
-            const ul = doc.createElement('ul');
-            ul.className = `code-snippet__line-index code-snippet__${lang}`;
-            lines.forEach(() => ul.appendChild(doc.createElement('li')));
+            const ul = wxEl(doc, 'ul', { cls: `code-snippet__line-index code-snippet__${lang}` });
+            lines.forEach(() => ul.appendChild(wxEl(doc, 'li')));
             section.appendChild(ul);
 
-            // 构造代码主体
-            const pre = doc.createElement('pre');
-            pre.className = `code-snippet__${lang}`;
-            pre.setAttribute('data-lang', lang);
+            const pre = wxEl(doc, 'pre', { cls: `code-snippet__${lang}`, attr: { 'data-lang': lang } });
 
             lines.forEach((line: string) => {
-                const codeLine = doc.createElement('code');
-                const span = doc.createElement('span');
-                span.setAttribute('leaf', '');
-                // 公众号会折叠普通空格（含 return null → returnnull），
-                // 只替换标签外的空白，避免破坏 hljs 的 class 属性
+                const codeLine = wxEl(doc, 'code');
+                const span = wxEl(doc, 'span', { attr: { leaf: '' } });
                 if (this.is_blank_code_line(line)) {
-                    span.innerHTML = '<br>';
+                    span.appendChild(wxEl(doc, 'br'));
                 } else {
-                    span.innerHTML = line.replace(/<[^>]+>|[^<]+/g, (part) => {
-                        if (part.startsWith('<')) return part;
-                        return part.replace(/\t/g, '    ').replace(/ /g, '&nbsp;');
-                    });
+                    span.replaceChildren(...this.htmlToNodes(line, doc));
+                    this.nbspInTextNodes(span);
                 }
                 codeLine.appendChild(span);
                 pre.appendChild(codeLine);
@@ -546,10 +573,10 @@ export class Wxmp {
 
             section.appendChild(pre);
 
-            // 隐藏的 mp-style-type
-            const mpStyleP = doc.createElement('p');
-            mpStyleP.setAttribute('style', 'display: none;');
-            mpStyleP.innerHTML = `<mp-style-type data-value="3"></mp-style-type>`;
+            const mpStyleP = wxEl(doc, 'p');
+            setStyles(mpStyleP, { display: 'none' });
+            const mpStyleType = wxEl(doc, 'mp-style-type', { attr: { 'data-value': '3' } });
+            mpStyleP.appendChild(mpStyleType);
 
             // 替换原来的 <pre>
             const preElement = preCode.parentElement;
@@ -604,81 +631,91 @@ export class Wxmp {
     }
 
     formatWeChatImageLink(inputHtml: string) {
-        // 创建一个临时的 div 元素来解析 HTML
-        let tempDiv = document.createElement('div');
-        tempDiv.innerHTML = inputHtml;
+        const doc = new DOMParser().parseFromString(inputHtml, 'text/html');
 
-        // 获取所有的 <a> 标签
-        let aTags = tempDiv.querySelectorAll('a');
+        doc.querySelectorAll('a').forEach(aTag => {
+            const imgTag = aTag.querySelector('img');
+            if (!imgTag) return;
 
-        // 遍历所有的 <a> 标签
-        aTags.forEach(aTag => {
-            let imgTag = aTag.querySelector('img');
+            const href = aTag.getAttribute('href') || '';
+            const src = imgTag.getAttribute('src') || '';
+            const imgFormat = src.split('.').pop() || '';
+            const wxSrc = `${src}?wx_fmt=${imgFormat}&from=appmsg`;
 
-            if (imgTag) {
-                // 提取 href 和 src
-                let href = aTag.getAttribute('href');
-                let src = imgTag.getAttribute('src');
+            const a = wxEl(doc, 'a', {
+                attr: {
+                    href,
+                    imgurl: wxSrc,
+                    linktype: 'image',
+                    tab: 'innerlink',
+                    'data-itemshowtype': '',
+                    target: '_blank',
+                    'data-linktype': '1',
+                }
+            });
 
-                // 获取图片格式（如 png, jpg, gif 等）
-                let imgFormat = src?.split('.').pop();
+            const jump = wxEl(doc, 'span', { cls: 'js_jump_icon h5_image_link' });
 
-                // 构建新的 HTML
-                let newHtml = `
-					<a href="${href}" imgurl="${src}?wx_fmt=${imgFormat}&amp;from=appmsg" linktype="image" tab="innerlink" data-itemshowtype="" target="_blank" data-linktype="1">
-						<span class="js_jump_icon h5_image_link">
-							<img data-src="${src}?wx_fmt=${imgFormat}&amp;from=appmsg" class="rich_pages wxw-img" data-ratio="0.18611111111111112" data-s="300,640" data-type="${imgFormat}" data-w="1080" type="block" data-imgfileid="100005308" src="${src}?wx_fmt=${imgFormat}&amp;from=appmsg">
-						</span>
-					</a>
-				`;
+            const img = wxEl(doc, 'img', {
+                cls: 'rich_pages wxw-img',
+                attr: {
+                    'data-src': wxSrc,
+                    'data-ratio': '0.18611111111111112',
+                    'data-s': '300,640',
+                    'data-type': imgFormat,
+                    'data-w': '1080',
+                    type: 'block',
+                    'data-imgfileid': '100005308',
+                    src: wxSrc,
+                }
+            });
 
-                // 替换原始的 <a> 标签
-                aTag.outerHTML = newHtml;
-            }
+            jump.appendChild(img);
+            a.appendChild(jump);
+            aTag.replaceWith(a);
         });
 
-        // 返回格式化后的 HTML
-        return tempDiv.innerHTML;
+        return doc.body.innerHTML;
     }
 
-    format_wxmp_h1(title: string) {
+    format_wxmp_h1 = (title: string): string => {
         let css = `
         <h1 style="box-sizing: border-box; border-width: 0px 0px 2px; border-style: solid; border-bottom-color: rgb(0, 152, 116); font-size: 19.6px; font-weight: bold; margin: 2em auto 1em; text-align: center; line-height: 1.75; font-family: Menlo, Monaco, &quot;Courier New&quot;, monospace; display: table; padding: 0.5em 1em; color: rgb(63, 63, 63); text-shadow: rgba(0, 0, 0, 0.1) 2px 2px 4px; visibility: visible;"><span leaf="" style="visibility: visible;">${title}</span></h1>
         `.trim()
         return css;
     }
 
-    format_wxmp_h2(title: string) {
+    format_wxmp_h2 = (title: string): string => {
         let css = `
         <h2 style="box-sizing: border-box;border-width: 0px;border-style: solid;border-color: hsl(var(--border));font-size: 18.2px;font-weight: bold;margin: 4em auto 2em;text-align: center;line-height: 1.75;font-family: Menlo, Monaco, &quot;Courier New&quot;, monospace;display: table;padding: 0.3em 1em;color: rgb(255, 255, 255);background: rgb(0, 152, 116);border-radius: 8px;box-shadow: rgba(0, 0, 0, 0.1) 0px 4px 6px;"><span leaf="">${title}</span></h2>
         `.trim()
         return css;
     }
 
-    format_wxmp_h3(title: string) {
+    format_wxmp_h3 = (title: string): string => {
         let css = `
         <h3 style="box-sizing: border-box;border-width: 0px 0px 1px 4px;border-style: solid solid dashed;border-bottom-color: rgb(0, 152, 116);border-left-color: rgb(0, 152, 116);font-size: 16.8px;font-weight: bold;margin: 2em 8px 0.75em 0px;text-align: left;line-height: 1.2;font-family: Menlo, Monaco, &quot;Courier New&quot;, monospace;padding-left: 12px;color: rgb(63, 63, 63);"><span leaf="">${title}</span></h3>
         `.trim()
         return css;
     }
 
-    format_wxmp_p_code(code: string) {
+    format_wxmp_p_code = (code: string): string => {
         let css = `
         <code style="box-sizing: border-box; border-width: 0px; border-style: solid; border-color: hsl(var(--border)); font-family: -apple-system-font, BlinkMacSystemFont, &quot;Helvetica Neue&quot;, &quot;PingFang SC&quot;, &quot;Hiragino Sans GB&quot;, &quot;Microsoft YaHei UI&quot;, &quot;Microsoft YaHei&quot;, Arial, sans-serif; font-feature-settings: normal; font-variation-settings: normal; font-size: 12.6px; text-align: left; line-height: 1.75; color: rgb(221, 17, 68); background: rgba(27, 31, 35, 0.05); padding: 3px 5px; border-radius: 4px; visibility: visible;"><span leaf="" style="visibility: visible;">${code}</span></code>`.trim()
         return css;
     }
 
-    format_wxmp_li_code(code: string) {
+    format_wxmp_li_code = (code: string): string => {
         let css = `
         <code style="box-sizing: border-box; border-width: 0px; border-style: solid; border-color: hsl(var(--border)); font-family: -apple-system-font, BlinkMacSystemFont, &quot;Helvetica Neue&quot;, &quot;PingFang SC&quot;, &quot;Hiragino Sans GB&quot;, &quot;Microsoft YaHei UI&quot;, &quot;Microsoft YaHei&quot;, Arial, sans-serif; font-feature-settings: normal; font-variation-settings: normal; font-size: 12.6px; text-align: left; line-height: 1.75; color: rgb(221, 17, 68); background: rgba(27, 31, 35, 0.05); padding: 3px 5px; border-radius: 4px; visibility: visible;"><span leaf="" style="visibility: visible;">${code}</span></code>`.trim()
         return css;
     }
 
-    is_code_balck(section:any,sec:string,lang:string){
+    is_code_balck(section: SectionCache, sec:string, lang:string){
         return section.type == 'code' && sec.trim().slice(3).startsWith(lang)
     }
 
-    async format_code_block_cards_album(section: any, sec:string) {
+    format_code_block_cards_album = async (section: SectionCache, sec:string) => {
         if(section.type != 'code' || !sec.trim().slice(3).startsWith('cards-album')){
             return null;
         }
@@ -698,7 +735,7 @@ export class Wxmp {
         return items;
     }
 
-    async format_section_html(section: any, sec:string) {
+    format_section_html = async (section: SectionCache, sec:string) => {
         if(section.type=='html'){
             return sec;
         }else{

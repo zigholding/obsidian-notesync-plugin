@@ -31,6 +31,7 @@ interface FeishuBinding {
 	SpaceId: string;
 	NodeToken: string;
 	ObjToken: string;
+	url?: string;
 }
 
 interface FeishuAccount {
@@ -156,7 +157,7 @@ export class Feishu {
 			const dests = this.listDests();
 			type DestPick = { isNew: boolean; dest: FeishuDest | null };
 			const newItem: DestPick = { isNew: true, dest: null };
-			let chosen: DestPick | null = null;
+			let chosen: DestPick | undefined;
 			if (!dests.length) {
 				chosen = newItem;
 			} else {
@@ -354,15 +355,17 @@ export class Feishu {
 			await this.fillImages(node.obj_token, prepared.images);
 		}
 
+		const domain = session.account.domain.replace(/\/$/, '');
+		const url = domain ? `${domain}/wiki/${node.node_token}` : '';
 		await this.writeBinding(tfile, {
 			Dest: session.name,
 			SpaceId: node.space_id,
 			NodeToken: node.node_token,
 			ObjToken: node.obj_token,
+			...(url ? { url } : {}),
 		});
 
-		const domain = session.account.domain.replace(/\/$/, '');
-		return domain ? `${domain}/wiki/${node.node_token}` : '';
+		return url;
 	}
 
 	private async browseOrPasteParent(): Promise<{

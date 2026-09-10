@@ -1,9 +1,10 @@
 {
 	"id": "note-sync",
 	"name": "Note Sync",
-	"version": "0.6.5",
-	"minAppVersion": "1.8.3",
-	"description": "Sync notes or plugins between vaults.",
+	"version": "0.6.6",
+	"minAppVersion": "1.13.6",
+	"description": "Sync notes and plugins between vaults, copy notes as WeChat or Word HTML, and upload to Feishu Wiki.",
 	"author": "ZigHolding",
+	"authorUrl": "https://github.com/zigholding",
 	"isDesktopOnly": true
 }

@@ -1,13 +1,10 @@
+import { getLanguage } from 'obsidian';
 
 export class Strings{
     language:string;
     constructor(){
-        let lang = window.localStorage.getItem('language');
-        if(lang){
-            this.language = lang;
-        }else{
-            this.language = 'en';
-        }
+        const lang = getLanguage();
+        this.language = lang === 'zh' || lang.startsWith('zh') ? 'zh' : (lang || 'en');
 	}
 
     get cmd_export_current_note(){

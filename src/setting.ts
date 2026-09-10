@@ -1,5 +1,5 @@
 import { 
-	App, PluginSettingTab, Setting,Plugin
+	App, PluginSettingTab, Setting
 } from 'obsidian';
 
 import NoteSyncPlugin from '../main';
@@ -21,6 +21,10 @@ export interface MySettings {
 	/** @deprecated */
 	feishu_domain:string;
 }
+
+export type BooleanSetting = {
+	[K in keyof MySettings]: MySettings[K] extends boolean ? K : never
+}[keyof MySettings];
 
 export const DEFAULT_SETTINGS: MySettings = {
 	strict_mode:false,
@@ -52,15 +56,15 @@ export class NoteSyncSettingTab extends PluginSettingTab {
 		return this.plugin.settings[field];
 	}
 
-	add_toggle(name:string,desc:string,field:keyof MySettings){
+	add_toggle(name:string,desc:string,field:BooleanSetting){
 		let {containerEl} = this;
-		let value = (this.plugin.settings as any)[field] as boolean;
+		let value = this.plugin.settings[field];
 		let item = new Setting(containerEl)  
 			.setName(name)
 			.setDesc(desc)
 			.addToggle(text => text
 				.setValue(value)
-				.onChange(async (value:never) => {
+				.onChange(async (value: boolean) => {
 					this.plugin.settings[field] = value;
 					await this.plugin.saveSettings();
 				})
@@ -115,8 +119,7 @@ export class NoteSyncSettingTab extends PluginSettingTab {
 			.setDesc(this.plugin.strings.setting_feishu_destinations_desc)
 			.addTextArea(text => {
 				text.inputEl.rows = 14;
-				text.inputEl.style.width = '100%';
-				text.inputEl.style.minWidth = '280px';
+				text.inputEl.setCssStyles({ width: '100%', minWidth: '280px' });
 				text.setPlaceholder(this.plugin.strings.setting_feishu_destinations_ph)
 					.setValue(this.plugin.settings.feishu_destinations)
 					.onChange(async (value) => {
@@ -139,5 +142,66 @@ export class NoteSyncSettingTab extends PluginSettingTab {
 					await this.plugin.feishu.pickDestination();
 					this.display();
 				}));
+	}
+
+	getSettingDefinitions() {
+		const s = this.plugin.strings;
+		return [
+			{
+				name: s.setting_vault_dir,
+				control: { type: 'textarea' as const, key: 'vaultDir' },
+			},
+			{
+				name: s.setting_strict_mode,
+				desc: s.setting_strict_mode_desc,
+				control: { type: 'toggle' as const, key: 'strict_mode' },
+			},
+			{
+				name: s.setting_git_repo,
+				control: { type: 'textarea' as const, key: 'git_repo' },
+			},
+			{
+				name: s.setting_wxmp_config,
+				control: { type: 'textarea' as const, key: 'wxmp_config' },
+			},
+			{
+				type: 'group' as const,
+				heading: s.setting_feishu_heading,
+				items: [
+					{
+						name: s.setting_feishu_destinations,
+						desc: s.setting_feishu_destinations_desc,
+						control: {
+							type: 'textarea' as const,
+							key: 'feishu_destinations',
+							rows: 14,
+							placeholder: s.setting_feishu_destinations_ph,
+						},
+					},
+					{
+						name: s.setting_feishu_actions,
+						render: (setting: Setting) => {
+							setting.addButton(btn => btn
+								.setButtonText(s.cmd_feishu_test)
+								.onClick(async () => {
+									await this.plugin.feishu.testConnection();
+								}));
+							setting.addButton(btn => btn
+								.setButtonText(s.cmd_feishu_pick)
+								.setCta()
+								.onClick(async () => {
+									await this.plugin.feishu.pickDestination();
+									const tab = this as NoteSyncSettingTab & { update?: () => void };
+									if (tab.update) {
+										tab.update();
+									} else {
+										this.display();
+									}
+								}));
+						},
+					},
+				],
+			},
+		];
 	}
 }

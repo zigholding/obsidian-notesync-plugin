@@ -1,9 +1,24 @@
 import {
-	Notice, TFile,
-	TFolder
+	Command, Notice, Platform,
+	TFolder, requestUrl
 } from 'obsidian';
+import * as electron from 'electron';
 
 import NoteSyncPlugin from '../main';
+import {
+	GitRepoItem,
+	NoteSyncFrontmatter,
+	asGitRepoItems,
+	communityPlugins,
+} from './types';
+
+interface ElectronRemoteDialog {
+	showSaveDialog: (options: {
+		title?: string;
+		defaultPath?: string;
+		filters?: { name: string; extensions: string[] }[];
+	}) => Promise<{ canceled: boolean; filePath?: string }>;
+}
 
 const cmd_export_current_note = (plugin: NoteSyncPlugin) => ({
 	id: 'export_current_note',
@@ -23,7 +38,7 @@ const cmd_set_vexporter = (plugin: NoteSyncPlugin) => ({
 		let tfile = plugin.app.workspace.getActiveFile();
 		if (!tfile) { return }
 		let dir = await plugin.easyapi.dialog_prompt(plugin.strings.prompt_path_of_folder);
-		let item: { [key: string]: any } = {};
+		let item: NoteSyncFrontmatter = {};
 		if (plugin.easyapi.fs.fs.existsSync(dir)) {
 			item['Dir'] = dir;
 		}
@@ -35,7 +50,7 @@ const cmd_set_vexporter = (plugin: NoteSyncPlugin) => ({
 
 		await plugin.app.fileManager.processFrontMatter(
 			tfile,
-			async (fm) => {
+			(fm) => {
 				fm[plugin.yaml] = item
 			}
 		)
@@ -48,19 +63,21 @@ const cmd_export_plugin = (plugin: NoteSyncPlugin) => ({
 	icon: 'arrow-right-from-line',
 	callback: async () => {
 
-		let plugins = Object.keys((plugin.app as any).plugins.plugins);
+		let plugins = Object.keys(communityPlugins(plugin.app).plugins);
 		let p = await plugin.easyapi.dialog_suggest(plugins, plugins);
-		let eplugin = (plugin.app as any).plugins.getPlugin(p);
+		if (!p) { return }
+		let eplugin = communityPlugins(plugin.app).getPlugin(p);
 		if (eplugin) {
 			let paths = plugin.settings.vaultDir.split("\n")
 			let target = await plugin.easyapi.fs.select_valid_dir(
 				paths
 			)
 			if (target) {
-				let items = plugin.easyapi.fs.list_dir(target, false)
+				const vaultRoot = target;
+				let items = plugin.easyapi.fs.list_dir(vaultRoot, false)
 				items = items.filter((x: string) => x.startsWith('.') && x != '.git').filter(
 					(x: string) => {
-						let path = plugin.easyapi.fs.path.join(target, x)
+						let path = plugin.easyapi.fs.path.join(vaultRoot, x)
 						if (!plugin.easyapi.fs.isdir(path)) {
 							return false
 						}
@@ -69,20 +86,21 @@ const cmd_export_plugin = (plugin: NoteSyncPlugin) => ({
 					}
 				)
 				if (items.length == 1) {
-					target = plugin.easyapi.fs.path.join(target, items[0], 'plugins')
+					target = plugin.easyapi.fs.path.join(vaultRoot, items[0], 'plugins')
 				} else if (items.length > 1) {
 					let item = await plugin.easyapi.dialog_suggest(
 						items, items, 'config'
 					)
 					if (item) {
-						target = plugin.easyapi.fs.path.join(target, item, 'plugins')
+						target = plugin.easyapi.fs.path.join(vaultRoot, item, 'plugins')
 					}
 				}
 			}
-			if (!plugin.easyapi.fs.fs.existsSync(target) ||
+			if (!target || !plugin.easyapi.fs.fs.existsSync(target) ||
 				plugin.easyapi.fs.path.basename(target) != 'plugins') {
 				target = await plugin.easyapi.dialog_prompt(plugin.strings.prompt_path_of_folder);
 			}
+			if (!target) { return }
 
 			target = target.replace(/\\/g, '/');
 			if (!target.endsWith('/' + p)) {
@@ -105,7 +123,7 @@ const cmd_export_plugin = (plugin: NoteSyncPlugin) => ({
 				let dst = `${target}/${item}`;
 				let flag = plugin.easyapi.fs.copy_file(src, dst, 'overwrite');
 				if (flag) {
-					console.log(`Copy ${item} to ${target}`, 5000)
+					new Notice(`Copy ${item} to ${target}`, 5000)
 				}
 			}
 		}
@@ -128,7 +146,7 @@ const cmd_download_git_repo = (plugin: NoteSyncPlugin) => ({
 		let repoOwner = match[2]; // 开发者
 		let repoName = match[3]; // 项目名称
 		let branch = match[4]; // 分支名称
-		let path = match[5];  // 初始路径
+		let repoPath = match[5];  // 初始路径
 
 		async function list_files_of_path(repoOwner: string, repoName: string, path: string, branch = 'master') {
 			let url;
@@ -137,29 +155,23 @@ const cmd_download_git_repo = (plugin: NoteSyncPlugin) => ({
 			} else {
 				url = `https://gitee.com/api/v5/repos/${repoOwner}/${repoName}/contents/${path}?ref=${branch}`
 			}
-			let req = await (window as any).requestUrl(url)
-			req = JSON.parse(req.text)
-			if (!Array.isArray(req)) {
-				req = [req]
-			}
-			return req
+			let req = await requestUrl(url)
+			const items = asGitRepoItems(JSON.parse(req.text))
+			return items
 		}
 
 		async function download_file(url: string, folder_path: string, file_name: string) {
-			let req = await (window as any).requestUrl(url)
-			// req = JSON.parse(req.text)
-			// let ctx = atob(req.content)
+			let req = await requestUrl(url)
 			let ctx = req.text
 			let tfile_path = `${folder_path}/${file_name}`
-			// console.log(ctx)
 			if (folder_path.startsWith('.')) {
-				let flag = (plugin.app.vault as any).exists(folder_path);
+				let flag = await plugin.app.vault.adapter.exists(folder_path);
 				if (!flag) {
 					await plugin.app.vault.createFolder(folder_path)
 				}
-				flag = (plugin.app.vault as any).exists(tfile_path);
+				flag = await plugin.app.vault.adapter.exists(tfile_path);
 				if (flag) {
-					await (plugin.app.vault as any).adapter.remove(tfile_path)
+					await plugin.app.vault.adapter.remove(tfile_path)
 					await plugin.app.vault.create(tfile_path, ctx)
 					new Notice(`更新：${tfile_path}`, 5000)
 				} else {
@@ -186,22 +198,21 @@ const cmd_download_git_repo = (plugin: NoteSyncPlugin) => ({
 
 		async function download_file_of_dir(repoOwner: string, repoName: string, path: string, branch: string) {
 			let items = await list_files_of_path(repoOwner, repoName, path, branch)
-			let nc = this.app.plugins.getPlugin('note-chain');
-			let item = await nc.dialog_suggest(
-				items.map((x: any) => (x.type == 'file' ? '📃' : '📁') + x.path),
+			let item = await plugin.easyapi.dialog_suggest(
+				items.map((x: GitRepoItem) => (x.type == 'file' ? '📃' : '📁') + x.path),
 				items, '', true
 			);
 			if (!item) { return }
-			if (typeof (item) == 'string' && item == 'all') {
-				for (let item of items) {
-					if (item.type == 'file') {
-						let file_name = item.path.split('/').last();
-						let folder_path = item.path.slice(0, item.path.length - file_name.length - 1);
-						await download_file(item.download_url, folder_path, file_name)
+			if (item === 'all') {
+				for (let entry of items) {
+					if (entry.type == 'file' && entry.download_url) {
+						let file_name = entry.path.split('/').last() || entry.path;
+						let folder_path = entry.path.slice(0, entry.path.length - file_name.length - 1);
+						await download_file(entry.download_url, folder_path, file_name)
 					}
 				}
-			} else if (item.type == 'file') {
-				let file_name = item.path.split('/').last();
+			} else if (item.type == 'file' && item.download_url) {
+				let file_name = item.path.split('/').last() || item.path;
 				let folder_path = item.path.slice(0, item.path.length - file_name.length - 1);
 				await download_file(item.download_url, folder_path, file_name)
 			} else if (item.type == 'dir') {
@@ -209,7 +220,7 @@ const cmd_download_git_repo = (plugin: NoteSyncPlugin) => ({
 			}
 		}
 
-		download_file_of_dir(repoOwner, repoName, path, branch)
+		await download_file_of_dir(repoOwner, repoName, repoPath, branch)
 
 	}
 });
@@ -289,9 +300,7 @@ const cmd_export_as_single_note = (plugin: NoteSyncPlugin) => ({
 	callback: async () => {
 		if (!plugin.easyapi.cfile) { return }
 
-		const fs = require("fs");
-		const path = require("path");
-		const { dialog } = require("electron").remote;
+		const dialog = (electron as { remote: { dialog: ElectronRemoteDialog } }).remote.dialog;
 
 		let cfiles = plugin.easyapi.file.get_selected_files();
 		if(cfiles.length<=2){
@@ -304,9 +313,9 @@ const cmd_export_as_single_note = (plugin: NoteSyncPlugin) => ({
 
 			// 2. 读取内容
 			let n = 0;
-			if(cfile.parent && cfile.parent.children.filter((x : any)=> x instanceof TFolder).length>0){
-				n = await plugin.easyapi.dialog_suggest([`-1 - All`,`0 - Brother`,`1 - Subfolder`],[-1,0,1]);
-				if(n == null){n=0}
+			if(cfile.parent && cfile.parent.children.filter((x): x is TFolder => x instanceof TFolder).length>0){
+				const picked = await plugin.easyapi.dialog_suggest([`-1 - All`,`0 - Brother`,`1 - Subfolder`],[-1,0,1]);
+				if (typeof picked === 'number') { n = picked }
 			}
 
 			cfiles = plugin.easyapi.file.get_tfiles_of_folder(cfile.parent,n)
@@ -342,7 +351,7 @@ const cmd_export_as_single_note = (plugin: NoteSyncPlugin) => ({
 			content = content + `=====\n${cfile.name}\n=====\n\n${tmp}\n\n`
 		}
 		// 4. 写入外部文件
-		fs.writeFileSync(result.filePath, content, "utf-8");
+		plugin.easyapi.fs.writeFile(result.filePath, content, "utf-8", (_err: Error) => { return; });
 
 		new Notice(`已保存到：${result.filePath}`);
 	}
@@ -350,7 +359,9 @@ const cmd_export_as_single_note = (plugin: NoteSyncPlugin) => ({
 
 
 
-const commandBuilders: Array<Function> = [
+type CommandBuilder = (plugin: NoteSyncPlugin) => Command;
+
+const commandBuilders: CommandBuilder[] = [
 	cmd_export_wxmp,
 	cmd_export_word,
 	cmd_upload_feishu,
@@ -358,7 +369,7 @@ const commandBuilders: Array<Function> = [
 	cmd_feishu_test,
 ];
 
-const commandBuildersDesktop: Array<Function> = [
+const commandBuildersDesktop: CommandBuilder[] = [
 	cmd_export_current_note,
 	cmd_set_vexporter,
 	cmd_export_plugin,
@@ -370,7 +381,7 @@ export function addCommands(plugin: NoteSyncPlugin) {
 	commandBuilders.forEach((c) => {
 		plugin.addCommand(c(plugin));
 	});
-	if ((plugin.app as any).isMobile == false) {
+	if (Platform.isMobile == false) {
 		commandBuildersDesktop.forEach((c) => {
 			plugin.addCommand(c(plugin));
 		});

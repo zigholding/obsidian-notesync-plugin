@@ -58,8 +58,7 @@ Run `Note Sync: Set config to export note` to configure the export settings:
 - `UseGitLink`：附件链接使用 Git 格式，默认 true  
     `UseGitLink`: Use Git-style links for attachments (default: true)
 
-> [!NOTE]+ 文件导出配置示例  
-> [!NOTE]+ Example Export Configuration
+> [!NOTE] 文件导出配置示例 / Example Export Configuration
 > 
 > ```yaml
 > note-sync:
@@ -164,7 +163,7 @@ Configure the `Git repository` in the **Settings** page. The URL must include th
 执行 `下载 Git 仓库文件` / `Download git repo` 命令，依次选择仓库、文件夹和文件进行下载。输入 `all` 可下载所有文件（不包括子文件夹）。  
 Run `Download git repo`, select the repository, then choose folders and files to download. Enter `all` to download all top-level files (excluding subfolders).
 
-![](./assets/下载笔记.gif)  
+![Download git repo](https://raw.githubusercontent.com/zigholding/obsidian-notesync-plugin/main/assets/%E4%B8%8B%E8%BD%BD%E7%AC%94%E8%AE%B0.gif)
 
 下载文件时，也可以预设路径，快速下载：
 You can also preset the path for quick download when fetching files:
@@ -174,24 +173,62 @@ You can also preset the path for quick download when fetching files:
 
 ### 设置页/Settings Page
 
-![](./assets/Pasted%20image%2020241215125538.png)
+![Settings page](https://raw.githubusercontent.com/zigholding/obsidian-notesync-plugin/main/assets/Pasted%20image%2020241215125538.png)
 
-> [!NOTE]+ Root dir of vault / 库目录  
+> [!NOTE] Root dir of vault / 库目录  
 > 导出插件或同步文件时，选择预设的目标库。多个库请用换行符分隔。  
 > Set predefined vaults for export/sync. Use newlines to separate multiple vaults.
 
-> [!Danger]+ Strict mode / 严格模式  
+> [!DANGER] Strict mode / 严格模式  
 > 启用严格模式，在目标文件夹中删除源文件夹中不存在的笔记或附件。请谨慎操作，此设置会**删除文件**。  
 > Enabling strict mode will delete notes or attachments in the target folder that are not present in the source. **Use with caution**—this option will delete files.
 
-> [!NOTE]+ Git repository / Git 仓库  
+> [!NOTE] Git repository / Git 仓库  
 > 用于「下载 Git 仓库文件」命令，每行一个仓库地址（须含分支名）。  
 > Used by Download git repo. One repo URL per line (branch required).
 
-> [!NOTE]+ Style config for wxmp / 微信公众号样式配置  
+> [!NOTE] Style config for wxmp / 微信公众号样式配置  
 > YAML 配置标题、行内代码等对应的 Templater 脚本笔记；清空则使用内置样式。详见公众号排版教程。  
 > YAML mapping of elements to Templater style notes; leave empty for built-in styles. See the WeChat formatting tutorial.
 
-> [!NOTE]+ Feishu Wiki / 飞书知识库  
+> [!NOTE] Feishu Wiki / 飞书知识库  
 > YAML 配置多个上传位置：每套 App 凭证、每个知识库、每个父节点都可以是一个位置。同一应用用 `account` 引用，避免重复写 Secret。凭证保存在本地 `data.json`，不要公开。详见飞书同步教程。  
 > YAML destinations: each app, wiki, and parent node can be its own named location. Reuse credentials with `account`. Credentials stay in local `data.json` — do not publish it. See the Feishu Wiki sync tutorial.
+
+---
+
+### 权限与数据 / Permissions
+
+社区目录 Scorecard 会列出剪切板、库读写、网络请求、base64 等能力。这些都是功能所需，不是后台收集。  
+The directory scorecard lists clipboard, vault I/O, network, and base64. All of it is on-demand for features below — no telemetry, no hidden endpoints.
+
+**网络 / Network**（仅在你主动执行对应命令时；当前发布版静态扫描会计到 2 处 `requestUrl`：列出仓库内容 + 下载文件）  
+Only when you run the matching command. The published build’s two `requestUrl` sites are “list repo contents” and “download file”:
+
+| 命令 / Command | 请求哪里 / Destinations |
+| --- | --- |
+| 下载 Git 仓库文件 / Download git repo | `https://api.github.com/repos/{owner}/{repo}/contents/...` 或 `https://gitee.com/api/v5/repos/{owner}/{repo}/contents/...`，以及接口返回的文件 `download_url` |
+| 上传到飞书知识库 / Upload to Feishu Wiki | `https://open.feishu.cn/open-apis/...`（token、建文档、传图、写块）；远程图会再请求该图片自己的 URL |
+
+没有定时轮询。不会访问未在上表出现的第三方。  
+No polling. No other hosts.
+
+**图片编码 / Image encoding**  
+公众号 / Word 导出把本地图写成 `data:image/...;base64,...` 嵌进剪切板 HTML，这样粘贴时图还在。编码用 Node `Buffer`（仅桌面端），不用 `atob` / `btoa`，也不用它藏密钥或 URL。  
+WeChat/Word export embeds local images as data URIs in clipboard HTML. Encoding uses Node `Buffer` (desktop-only), not `atob`/`btoa`, and never to hide secrets.
+
+**库文件 / Vault files**  
+读取、写入当前库笔记与附件；「同步到其它库」复制到你指定的目标库路径。启用严格模式时，会删除目标中源侧不存在的文件。  
+Reads/writes the current vault. Sync copies to a path you choose. Strict mode deletes extra files in the target.
+
+**剪切板 / Clipboard**  
+仅在你执行导出命令时**写入**剪切板：公众号 / Word 写入排版 HTML；飞书成功后可能写入文档链接。不会读取剪切板里的其它内容，也不会后台监听复制。  
+On export commands only, the plugin **writes** the clipboard (WeChat/Word HTML, or a Feishu doc URL). It does not read other clipboard data or monitor copy events.
+
+**本地存储 / Storage**  
+设置和飞书凭证走 Obsidian `saveData` / `data.json`。界面语言用 `getLanguage()`，不用 `localStorage` / `sessionStorage`。  
+Settings and Feishu secrets use Obsidian `saveData` (`data.json`). UI language uses `getLanguage()`, not `localStorage` / `sessionStorage`.
+
+**凭证 / Secrets**  
+飞书 App Secret 只保存在本机 `data.json`，不要提交到 Git。  
+Feishu app secrets stay in local `data.json` — do not commit that file.

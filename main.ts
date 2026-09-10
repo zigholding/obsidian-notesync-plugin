@@ -5,6 +5,7 @@ import { Word } from 'src/word';
 import { Feishu } from 'src/feishu';
 import { Strings } from 'src/strings';
 import {MySettings,NoteSyncSettingTab,DEFAULT_SETTINGS} from 'src/setting'
+import { EasyApi, asNoteSyncFrontmatter, getEasyApi } from 'src/types';
 
 import { addCommands } from 'src/commands';
 
@@ -26,8 +27,8 @@ export default class NoteSyncPlugin extends Plugin {
 		)
 	}
 
-	get easyapi(){
-		return (window as any).ea;
+	get easyapi(): EasyApi {
+		return getEasyApi();
 	}
 
 	async _onload_() {
@@ -99,13 +100,14 @@ export default class NoteSyncPlugin extends Plugin {
 		let mcache = this.app.metadataCache.getFileCache(tfile);
 		let ctx = await this.app.vault.read(tfile);
 
-		let fm: { [key: string]: any } = {};
-		if(mcache && mcache['frontmatter']){
-			fm = mcache['frontmatter'];
+		let fm: Record<string, unknown> = {};
+		if(mcache && mcache.frontmatter){
+			fm = mcache.frontmatter as Record<string, unknown>;
 		}
+		const ns = asNoteSyncFrontmatter(fm[this.yaml]);
 
 		if(!dst){
-			dst = fm[this.yaml]?.Dir
+			dst = ns.Dir ?? null;
 			if(!dst){
 				dst = await this.easyapi.dialog_prompt('Path of LocalGitProject');
 			}
@@ -121,25 +123,25 @@ export default class NoteSyncPlugin extends Plugin {
 
 		// set target filename/文件名
 		let target;
-		let name = fm[this.yaml]?.Name;
+		let name = ns.Name;
 		if(name && !(name=='')){
 			target = dst+'/'+name+'.md';
 		}else{
 			target = dst+'/'+tfile.basename+'.md';
 		}
 		
-		if(fm[this.yaml]?.RemoveMeta){
+		if(ns.RemoveMeta){
 			if(mcache?.frontmatterPosition?.end?.offset){
 				ctx = ctx.slice(mcache.frontmatterPosition.end.offset);
 			}
 		}
 		
-		let assets = fm[this.yaml]?.Assets
+		let assets = ns.Assets
 
-		if(fm[this.yaml]?.UseGitLink && assets){
+		if(ns.UseGitLink && assets){
 			
 			ctx = ctx.replace(
-				/\!\[\[(.*?)\]\]/g, 
+				/!\[\[(.*?)\]\]/g, 
 				(match, filename) => {
 			  		return `![](./${assets}/${filename.replace(/ /g,'%20')})`;
 			})
